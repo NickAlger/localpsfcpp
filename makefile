@@ -6,6 +6,7 @@ default: all
 ##################    VVVV    Change these    VVVV    ##################
 
 EIGEN_INCLUDE := /home/nick/anaconda3/envs/fenics3/include/eigen3 # https://eigen.tuxfamily.org/index.php?title=Main_Page
+HLIBPRO_DIR := /home/nick/hlibpro-2.9 # https://www.hlibpro.com/
 
 ########################################################################
 
@@ -15,10 +16,8 @@ PYSUFFIX = $(shell python3-config --extension-suffix)
 INCLUDE_DIR := ./include
 SRC_DIR  := ./src
 OBJ_DIR  := ./obj
-BUILD_DIR  := ./nalger_helper_functions
-# LIB_DIR  := ./lib
-LIB_DIR  := $(BUILD_DIR)
-EXAMPLES_DIR := ./examples
+BUILD_DIR  := ./bin
+LIB_DIR  := ./lib
 
 CXXFLAGS := -std=c++17 -pthread -lpthread -O3 -Wall
 SHAREDFLAGS := -shared -fPIC
@@ -26,7 +25,7 @@ SHAREDFLAGS := -shared -fPIC
 ALL_COMPILE_STUFF = $(CXXFLAGS) $(PYFLAGS) \
 					-I$(INCLUDE_DIR) -I$(EIGEN_INCLUDE) -I$(THREADPOOL_INCLUDE)
 
-BINDINGS_TARGET = nalger_helper_functions_cpp$(PYSUFFIX)
+BINDINGS_TARGET = localpsfcpp$(PYSUFFIX)
 
 all: $(LIB_DIR)/$(BINDINGS_TARGET) $(EXAMPLES_DIR)/kdtree_example $(EXAMPLES_DIR)/aabbtree_example
 	@echo 'Finished building target: $@'
