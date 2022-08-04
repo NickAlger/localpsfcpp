@@ -16,9 +16,9 @@
 #include "kdtree.h"
 #include "aabbtree.h"
 #include "simplexmesh.h"
-#include "geometric_sort.h"
 #include "brent_minimize.h"
 #include "ellipsoid.h"
+#include "impulse_response.h"
 
 namespace py = pybind11;
 
@@ -28,13 +28,13 @@ using namespace std;
 using namespace KDT;
 using namespace AABB;
 using namespace SMESH;
-using namespace GSORT;
 using namespace BRENT;
 using namespace ELLIPSOID;
+using namespace IMPULSERESPONSE;
 
 
-PYBIND11_MODULE(nalger_helper_functions_cpp, m) {
-    m.doc() = "python bindings for helpers written in c++";
+PYBIND11_MODULE(localpsfcpp, m) {
+    m.doc() = "python bindings for localpsf c++ code";
 
     py::class_<KDTree>(m, "KDTree")
         .def(py::init< const Ref<const MatrixXd> >())
@@ -59,7 +59,6 @@ PYBIND11_MODULE(nalger_helper_functions_cpp, m) {
         .def("first_point_collision", &SimplexMesh::first_point_collision)
         .def("eval_CG1", &SimplexMesh::eval_CG1);
 
-    m.def("geometric_sort", &geometric_sort);
     m.def("brent_minimize", &brent_minimize);
     m.def("ellipsoids_intersect", &ellipsoids_intersect);
 
@@ -70,6 +69,8 @@ PYBIND11_MODULE(nalger_helper_functions_cpp, m) {
                        const double>())
         .def_readwrite("batches", &EllipsoidBatchPicker::batches)
         .def("pick_batch", &EllipsoidBatchPicker::pick_batch);
+
+    m.def("impulse_response_moments", &impulse_response_moments);
 }
 
 //import numpy as np

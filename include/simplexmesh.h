@@ -9,7 +9,6 @@
 
 #include "kdtree.h"
 #include "aabbtree.h"
-#include "geometric_sort.h"
 
 
 namespace SMESH {

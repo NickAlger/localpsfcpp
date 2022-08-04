@@ -8,8 +8,6 @@
 #include <math.h>
 #include <Eigen/Dense>
 
-#include "geometric_sort.h"
-
 
 namespace AABB {
 
