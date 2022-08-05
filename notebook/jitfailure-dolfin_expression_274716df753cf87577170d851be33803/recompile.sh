@@ -1,0 +1,3 @@
+#!/bin/bash
+# Execute this file to recompile locally
+/home/nick/anaconda3/envs/fenics4/bin/x86_64-conda-linux-gnu-c++ -Wall -shared -fPIC -std=c++11 -O3 -fno-math-errno -fno-trapping-math -ffinite-math-only -I/home/nick/anaconda3/envs/fenics4/include -I/home/nick/anaconda3/envs/fenics4/include/eigen3 -I/home/nick/anaconda3/envs/fenics4/.cache/dijitso/include dolfin_expression_274716df753cf87577170d851be33803.cpp -L/home/nick/anaconda3/envs/fenics4/lib -L/home/nick/anaconda3/envs/fenics4/home/nick/anaconda3/envs/fenics4/lib -L/home/nick/anaconda3/envs/fenics4/.cache/dijitso/lib -Wl,-rpath,/home/nick/anaconda3/envs/fenics4/.cache/dijitso/lib -lmpi -lmpicxx -lpetsc -lslepc -lhdf5 -lboost_timer -ldolfin -olibdijitso-dolfin_expression_274716df753cf87577170d851be33803.so

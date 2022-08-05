@@ -90,11 +90,13 @@ class EllipsoidBatchPicker
 private:
     AABB::AABBTree               aabb;
     std::vector<Eigen::VectorXd> all_points;
+    std::vector<double>          all_vol;
     std::vector<Eigen::VectorXd> all_mu;
     std::vector<Eigen::MatrixXd> all_Sigma;
     int                          num_pts;
     int                          spatial_dim;
     double                       tau;
+    double                       min_vol;
     std::vector<bool>            is_in_batch;
     std::vector<bool>            is_pickable;
 
@@ -103,12 +105,18 @@ public:
     std::vector<double>           squared_distances;
 
     EllipsoidBatchPicker( const std::vector<Eigen::VectorXd> all_points_input,
+                          const std::vector<double>          all_vol_input,
                           const std::vector<Eigen::VectorXd> all_mu_input,
                           const std::vector<Eigen::MatrixXd> all_Sigma_input,
-                          const double                       tau_input)
+                          const double                       tau_input,    // 3.0 is a good choice
+                          const double                       min_vol_rtol) // 1e-5 is a good choice
     {
         tau = tau_input;
         num_pts = all_points_input.size();
+        if (all_vol_input.size() != num_pts)
+        {
+            throw std::invalid_argument( "Different number of points and vol" );
+        }
         if (all_mu_input.size() != num_pts)
         {
             throw std::invalid_argument( "Different number of points and mu" );
@@ -127,17 +135,30 @@ public:
         is_pickable.reserve(num_pts);
         is_in_batch.reserve(num_pts);
         all_points.reserve(num_pts);
+        all_vol.reserve(num_pts);
         all_mu.reserve(num_pts);
         all_Sigma.reserve(num_pts);
         for ( int ii=0; ii<num_pts; ++ii )
         {
             all_points.push_back(all_points_input[ii]);
+            all_vol.push_back(all_vol_input[ii]);
             all_mu.push_back(all_mu_input[ii]);
             all_Sigma.push_back(all_Sigma_input[ii]);
             is_pickable.push_back(true);
             is_in_batch.push_back(false);
             squared_distances.push_back(-1.0);
         }
+
+        double max_vol = 0.0;
+        for ( int ii=0; ii<num_pts; ++ii )
+        {
+            double vol_i = all_vol[ii];
+            if ( vol_i > max_vol )
+            {
+                max_vol = vol_i;
+            }
+        }
+        min_vol = min_vol_rtol * max_vol;
 
         Eigen::MatrixXd box_mins(spatial_dim, num_pts);
         Eigen::MatrixXd box_maxes(spatial_dim, num_pts);
@@ -156,7 +177,7 @@ public:
     {
         for ( int ii=0; ii<num_pts; ++ii )
         {
-            is_pickable[ii] = (!is_in_batch[ii]);
+            is_pickable[ii] = ( (!is_in_batch[ii]) && (all_vol[ii] > min_vol) );
         }
 
         std::vector<int> candidate_inds(num_pts);

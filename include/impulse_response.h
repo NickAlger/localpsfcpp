@@ -79,5 +79,32 @@ std::tuple<std::vector<double>,          // all vols, V
     return std::make_tuple(all_vol, all_mu, all_Sigma);
 }
 
+// apply_A    : L2(Omega_in)   -> L2'(Omega_out)
+// apply_AT   : L2(Omega_out)  -> L2'(Omega_in)
+// apply_M_in : L2(Omega_in)   -> L2'(Omega_in)
+// solve_M_in : L2'(Omega_in)  -> L2(Omega_in)
+// apply_M_in : L2(Omega_out)  -> L2'(Omega_out)
+// solve_M_in : L2'(Omega_out) -> L2(Omega_out)
+Eigen::VectorXd impulse_response_batch(const std::function<Eigen::VectorXd(Eigen::VectorXd)> & apply_A,
+                                       const std::function<Eigen::VectorXd(Eigen::VectorXd)> & solve_M_in,
+                                       const std::function<Eigen::VectorXd(Eigen::VectorXd)> & solve_M_out,
+                                       const std::vector<int>    & dirac_inds,
+                                       const std::vector<double> & dirac_weights,
+                                       const double              & N_in)
+{
+    if (dirac_inds.size() != dirac_weights.size())
+    {
+        throw std::invalid_argument( "Different number of dirac_inds and dirac_weights" );
+    }
+
+    Eigen::VectorXd dirac_comb = Eigen::VectorXd::Zero(N_in);
+    for ( int ii=0; ii<dirac_inds.size(); ++ii )
+    {
+        dirac_comb(dirac_inds[ii]) = dirac_weights[ii];
+    }
+
+    return solve_M_out(apply_A(solve_M_in(dirac_comb)));
+}
+
 
 }

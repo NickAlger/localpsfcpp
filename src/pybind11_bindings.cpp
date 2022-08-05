@@ -64,13 +64,16 @@ PYBIND11_MODULE(localpsfcpp, m) {
 
     py::class_<EllipsoidBatchPicker>(m, "EllipsoidBatchPicker")
         .def(py::init< const std::vector<Eigen::VectorXd>,
+                       const std::vector<double>,
                        const std::vector<Eigen::VectorXd>,
                        const std::vector<Eigen::MatrixXd>,
+                       const double,
                        const double>())
         .def_readwrite("batches", &EllipsoidBatchPicker::batches)
         .def("pick_batch", &EllipsoidBatchPicker::pick_batch);
 
     m.def("impulse_response_moments", &impulse_response_moments);
+    m.def("impulse_response_batch", &impulse_response_batch);
 }
 
 //import numpy as np
