@@ -6,6 +6,7 @@
 
 #include <math.h>
 #include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
 
 namespace IMPULSERESPONSE {
 
@@ -16,8 +17,8 @@ namespace IMPULSERESPONSE {
 std::tuple<std::vector<double>,          // all vols, V
            std::vector<Eigen::VectorXd>, // all means, mu
            std::vector<Eigen::MatrixXd>> // all covariances, Sigma
-    impulse_response_moments(const std::function<Eigen::VectorXd(Eigen::VectorXd)> &apply_AT,
-                             const std::function<Eigen::VectorXd(Eigen::VectorXd)> &solve_M_in,
+    impulse_response_moments(const std::function<Eigen::VectorXd(Eigen::VectorXd)> & apply_AT,
+                             const std::function<Eigen::VectorXd(Eigen::VectorXd)> & solve_M_in,
                              const Eigen::MatrixXd &dof_coords_out) // shape=(N_out, gdim_out)
 {
     const int N_out = dof_coords_out.rows();

@@ -7,7 +7,8 @@
 #include <Eigen/LU>
 
 #include "kdtree.h"
-
+#include "simplexmesh.h"
+#include "interpolation.h"
 
 namespace PCK {
 
@@ -17,59 +18,6 @@ using  real_t = float;
 #else
 using  real_t = double;
 #endif
-
-
-// Radial basis function interpolation with thin plate spline basis functions
-double tps_interpolate( const Eigen::VectorXd & function_at_rbf_points,
-                        const Eigen::MatrixXd & rbf_points,
-                        const Eigen::VectorXd & eval_point )
-{
-    int N = rbf_points.cols();
-
-    double function_at_eval_point;
-    if ( N == 1 )
-    {
-        function_at_eval_point = function_at_rbf_points(0);
-    }
-    else
-    {
-        Eigen::MatrixXd M(N, N);
-        for ( int jj=0; jj<N; ++jj )
-        {
-            for ( int ii=0; ii<N; ++ii )
-            {
-                if ( ii == jj )
-                {
-                    M(ii,jj) = 0.0;
-                }
-                else
-                {
-                    double r_squared = (rbf_points.col(ii) - rbf_points.col(jj)).squaredNorm();
-                    M(ii, jj) = 0.5 * r_squared * log(r_squared);
-                }
-            }
-        }
-
-        Eigen::VectorXd weights = M.lu().solve(function_at_rbf_points);
-
-        Eigen::VectorXd rbfs_at_eval_point(N);
-        for ( int ii=0; ii<N; ++ii )
-        {
-            double r_squared = (rbf_points.col(ii) - eval_point).squaredNorm();
-            if ( r_squared == 0.0 )
-            {
-                rbfs_at_eval_point(ii) = 0.0;
-            }
-            else
-            {
-                rbfs_at_eval_point(ii) = 0.5 * r_squared * log(r_squared);
-            }
-        }
-
-        function_at_eval_point = (weights.array() * rbfs_at_eval_point.array()).sum();
-    }
-    return function_at_eval_point;
-}
 
 
 class ImpulseResponseBatches
@@ -185,7 +133,7 @@ public:
             }
         }
 
-        pair<Eigen::VectorXi, Eigen::VectorXd> nn_result = kdtree.query( x, min(num_neighbors, num_pts()) );
+        std::pair<Eigen::VectorXi, Eigen::VectorXd> nn_result = kdtree.query( x, std::min(num_neighbors, num_pts()) );
         Eigen::VectorXi nearest_inds = nn_result.first;
 
         int N_nearest = nearest_inds.size();
@@ -254,7 +202,7 @@ public:
                         }
                     }
                 }
-                good_points_and_values.push_back(make_pair(xj - x, varphi_at_y_minus_x));
+                good_points_and_values.push_back(std::make_pair(xj - x, varphi_at_y_minus_x));
             }
         }
         return good_points_and_values;
@@ -266,7 +214,7 @@ class ProductConvolutionKernelRBF : public HLIB::TCoeffFn< real_t >
 {
 private:
     int dim;
-    shared_ptr<ImpulseResponseBatches> col_batches;
+    std::shared_ptr<ImpulseResponseBatches> col_batches;
 
 public:
     std::vector<Eigen::VectorXd> row_coords;
@@ -274,14 +222,14 @@ public:
     bool                         mean_shift = true;
     bool                         vol_preconditioning = true;
 
-    ProductConvolutionKernelRBFColsOnly( shared_ptr<ImpulseResponseBatches> col_batches,
-                                         std::vector<Eigen::VectorXd>       col_coords,
-                                         std::vector<Eigen::VectorXd>       row_coords)
+    ProductConvolutionKernelRBF( std::shared_ptr<ImpulseResponseBatches> col_batches,
+                                         std::vector<Eigen::VectorXd>            col_coords,
+                                         std::vector<Eigen::VectorXd>            row_coords)
         : col_batches(col_batches),
           row_coords(row_coords),
           col_coords(col_coords)
     {
-        cout << "Using ProductConvolutionKernelRBFColsOnly!" << endl;
+        std::cout << "Using ProductConvolutionKernelRBFColsOnly!" << std::endl;
         dim = col_batches->dim;
     }
 
@@ -319,22 +267,22 @@ public:
                     P.col(jj) = points_and_values[jj].first;
                     F(jj)     = points_and_values[jj].second;
                 }
-                kernel_value = RBF::tps_interpolate( F, P, Eigen::MatrixXd::Zero(dim,1) );
+                kernel_value = INTERP::tps_interpolate( F, P, Eigen::MatrixXd::Zero(dim,1) );
             }
         }
 
         return kernel_value;
     }
 
-    inline double eval_matrix_entry(const int row_ind,
-                                    const int col_ind ) const
+    double eval_matrix_entry(const int row_ind,
+                             const int col_ind ) const
     {
         return eval_integral_kernel(row_coords[row_ind], col_coords[col_ind]);
     }
 
-    void eval  ( const std::vector< idx_t > &  rowidxs,
-                 const std::vector< idx_t > &  colidxs,
-                 real_t *                      matrix ) const
+    void eval  ( const std::vector< HLIB::idx_t > &  rowidxs,
+                 const std::vector< HLIB::idx_t > &  colidxs,
+                 real_t *                            matrix ) const
     {
         // Check input sizes
         bool input_is_good = true;
@@ -388,7 +336,7 @@ public:
 
     using HLIB::TCoeffFn< real_t >::eval;
 
-    virtual matform_t  matrix_format  () const { return MATFORM_NONSYM; }
+    virtual HLIB::matform_t  matrix_format  () const { return HLIB::MATFORM_NONSYM; }
 
 };
 
