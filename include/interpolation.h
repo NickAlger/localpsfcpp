@@ -8,6 +8,7 @@
 
 #include "kdtree.h"
 #include "simplexmesh.h"
+#include "ellipsoid.h"
 
 
 namespace INTERP
