@@ -73,19 +73,18 @@ PYBIND11_MODULE(localpsfcpp, m) {
     //     .def("pick_batch", &EllipsoidBatchPicker::pick_batch);
 
     py::class_<EllipsoidForest>(m, "EllipsoidForest")
-        .def(py::init< const std::vector<Eigen::VectorXd> &, // reference_points_list,
+        .def(py::init< 
+        // const std::vector<Eigen::VectorXd> &, // reference_points_list,
                        const std::vector<double>          &, // vol_list,
                        const std::vector<Eigen::VectorXd> &, // mu_list,
                        const std::vector<Eigen::MatrixXd> &, // Sigma_list,
                        const double                          // initial_tau 
                      >())
-        .def_readwrite("reference_points",   &EllipsoidForest::reference_points)
         .def_readwrite("vol",                &EllipsoidForest::vol)
         .def_readwrite("mu",                 &EllipsoidForest::mu)
         .def_readwrite("Sigma",              &EllipsoidForest::Sigma)
         .def_readwrite("tau",                &EllipsoidForest::tau)
-        .def_readwrite("dE",                 &EllipsoidForest::dE)
-        .def_readwrite("dR",                 &EllipsoidForest::dR)
+        .def_readwrite("d",                  &EllipsoidForest::d)
         .def_readwrite("N",                  &EllipsoidForest::N)
         .def_readwrite("Sigma_eigenvectors", &EllipsoidForest::Sigma_eigenvectors)
         .def_readwrite("Sigma_eigenvalues",  &EllipsoidForest::Sigma_eigenvalues)
@@ -96,7 +95,6 @@ PYBIND11_MODULE(localpsfcpp, m) {
         .def_readwrite("box_mins",           &EllipsoidForest::box_mins)
         .def_readwrite("box_maxes",          &EllipsoidForest::box_maxes)
         .def_readwrite("ellipsoid_aabb",     &EllipsoidForest::ellipsoid_aabb)
-        .def_readwrite("reference_kdtree",   &EllipsoidForest::reference_kdtree)
         .def("update_tau", &EllipsoidForest::update_tau)
         .def("pick_ellipsoid_batch", &EllipsoidForest::pick_ellipsoid_batch);
 
