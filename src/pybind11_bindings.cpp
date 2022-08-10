@@ -73,6 +73,12 @@ PYBIND11_MODULE(localpsfcpp, m) {
     //     .def("pick_batch", &EllipsoidBatchPicker::pick_batch);
 
     py::class_<EllipsoidForest>(m, "EllipsoidForest")
+        .def(py::init< const std::vector<Eigen::VectorXd> &, // reference_points_list,
+                       const std::vector<double>          &, // vol_list,
+                       const std::vector<Eigen::VectorXd> &, // mu_list,
+                       const std::vector<Eigen::MatrixXd> &, // Sigma_list,
+                       const double                          // initial_tau 
+                     >())
         .def_readwrite("reference_points",   &EllipsoidForest::reference_points)
         .def_readwrite("vol",                &EllipsoidForest::vol)
         .def_readwrite("mu",                 &EllipsoidForest::mu)
@@ -91,12 +97,13 @@ PYBIND11_MODULE(localpsfcpp, m) {
         .def_readwrite("box_maxes",          &EllipsoidForest::box_maxes)
         .def_readwrite("ellipsoid_aabb",     &EllipsoidForest::ellipsoid_aabb)
         .def_readwrite("reference_kdtree",   &EllipsoidForest::reference_kdtree)
-        .def("update_tau", &EllipsoidForest::update_tau);
+        .def("update_tau", &EllipsoidForest::update_tau)
+        .def("pick_ellipsoid_batch", &EllipsoidForest::pick_ellipsoid_batch);
 
     m.def("impulse_response_moments", &impulse_response_moments);
     m.def("impulse_response_batch", &impulse_response_batch);
-    m.def("create_ellipsoid_forest", &create_ellipsoid_forest);
-    m.def("pick_ellipsoid_batch", &pick_ellipsoid_batch);
+    // m.def("create_ellipsoid_forest", &create_ellipsoid_forest);
+    // m.def("pick_ellipsoid_batch", &pick_ellipsoid_batch);
 }
 
 

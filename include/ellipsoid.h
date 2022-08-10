@@ -85,9 +85,7 @@ bool ellipsoids_intersect( const Eigen::VectorXd & mu_A,
     }
 }
 
-// dR = reference spatial dimension (e.g., 1, 2, or 3)
-// dE = ellipsoid spatial dimension (e.g., 1, 2, or 3), 
-// N = number of ellipsoids (e.g., thousands or millions)
+
 struct EllipsoidForest
 {
     Eigen::MatrixXd reference_points; // shape=(dR,    N)
@@ -96,9 +94,9 @@ struct EllipsoidForest
     Eigen::MatrixXd Sigma;            // shape=(dE*dE, N)
     double          tau;
 
-    int    dE;
-    int    dR;
-    int    N;
+    int dE; // reference spatial dimension (e.g., 1, 2, or 3)
+    int dR; // ellipsoid spatial dimension (e.g., 1, 2, or 3)
+    int N;  // number of ellipsoids (e.g., thousands or millions)
 
     Eigen::MatrixXd Sigma_eigenvectors; // shape=(dE*dE, N)
     Eigen::MatrixXd Sigma_eigenvalues;  // shape=(dE,    N)
@@ -113,212 +111,206 @@ struct EllipsoidForest
     AABB::AABBTree ellipsoid_aabb;
     KDT::KDTree    reference_kdtree;
 
+    EllipsoidForest( const std::vector<Eigen::VectorXd> & reference_points_list,
+                     const std::vector<double>          & vol_list,
+                     const std::vector<Eigen::VectorXd> & mu_list,
+                     const std::vector<Eigen::MatrixXd> & Sigma_list,
+                     const double                         initial_tau )
+    {
+        if ( initial_tau < 0.0 )
+        {
+            throw std::invalid_argument( "negative initial_tau given" );
+        }
+        tau = initial_tau;
+
+        N = mu_list.size();
+        if (N <= 0)
+        {
+            throw std::invalid_argument( "No ellipsoids given. Cannot infer spatial dimension" );
+        }
+        if (reference_points_list.size() != N)
+        {
+            throw std::invalid_argument( "reference_points_list.size() != mu_list.size()" );
+        }
+        if (vol_list.size() != N)
+        {
+            throw std::invalid_argument( "vol_list.size() != mu_list.size()" );
+        }
+        if (Sigma_list.size() != N)
+        {
+            throw std::invalid_argument( "Sigma_list.size() != mu_list.size()" );
+        }
+
+        dE = mu_list[0].size();
+        dR = reference_points_list[0].size();
+        reference_points.resize(dR,    N);
+        vol             .resize(N);
+        mu              .resize(dE,    N);
+        Sigma           .resize(dE*dE, N);
+        for ( int ii=0; ii<N; ++ii )
+        {
+            if ( reference_points_list[ii].size() != dR )
+            {
+                throw std::invalid_argument( "inconsistent sizes in reference_points_list" );
+            }
+            reference_points.col(ii) = reference_points_list[ii];
+
+            vol(ii) = vol_list[ii];
+
+            if ( mu_list[ii].size() != dE )
+            {
+                throw std::invalid_argument( "inconsistent sizes in mu_list" );
+            }
+            mu.col(ii) = mu_list[ii];
+
+            if ( Sigma_list[ii].rows() != dE )
+            {
+                throw std::invalid_argument( "inconsistent row sizes in Sigma_list" );
+            }
+            if ( Sigma_list[ii].cols() != dE )
+            {
+                throw std::invalid_argument( "inconsistent col sizes in Sigma_list" );
+            }
+            Sigma.col(ii) = Eigen::Map<const Eigen::VectorXd>(Sigma_list[ii].data(), dE*dE);
+        }
+
+        Sigma_eigenvectors.resize(dE*dE, N);
+        Sigma_eigenvalues .resize(dE,    N);
+        iSigma            .resize(dE*dE, N);
+        sqrt_Sigma        .resize(dE*dE, N);
+        isqrt_Sigma       .resize(dE*dE, N);
+        det_sqrt_Sigma    .resize(N);
+        for ( int ii=0; ii<N; ++ii )
+        {
+            Eigen::Map<const Eigen::MatrixXd> Sigma_i(Sigma.col(ii).data(), dE, dE);
+            Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es(Sigma_i);
+            Eigen::MatrixXd P   = es.eigenvectors();
+            Eigen::MatrixXd iP  = P.inverse();
+
+            Eigen::VectorXd dd       = es.eigenvalues();
+            Eigen::VectorXd idd      = dd.array().inverse().matrix();
+            Eigen::VectorXd sqrt_dd  = dd.array().sqrt().matrix();
+            Eigen::VectorXd isqrt_dd = sqrt_dd.array().inverse().matrix();
+
+            Eigen::MatrixXd iSigma_i         = P * idd.asDiagonal()      * iP;
+            Eigen::MatrixXd sqrt_Sigma_i     = P * sqrt_dd.asDiagonal()  * iP;
+            Eigen::MatrixXd isqrt_Sigma_i    = P * isqrt_dd.asDiagonal() * iP;
+
+            Sigma_eigenvalues .col(ii) = dd;
+            Sigma_eigenvectors.col(ii) = Eigen::Map<Eigen::VectorXd>(P            .data(), dE*dE);
+            iSigma            .col(ii) = Eigen::Map<Eigen::VectorXd>(iSigma_i     .data(), dE*dE);
+            sqrt_Sigma        .col(ii) = Eigen::Map<Eigen::VectorXd>(sqrt_Sigma_i .data(), dE*dE);
+            isqrt_Sigma       .col(ii) = Eigen::Map<Eigen::VectorXd>(isqrt_Sigma_i.data(), dE*dE);
+
+            det_sqrt_Sigma(ii) = sqrt_dd.prod();
+        }
+
+        reference_kdtree.build_tree(reference_points);
+
+        update_bounding_boxes();
+        ellipsoid_aabb.build_tree(box_mins, box_maxes);
+    }
+
+    void update_bounding_boxes()
+    {
+        box_mins .resize(dE, N);
+        box_maxes.resize(dE, N);
+        for ( int ii=0; ii<N; ++ii )
+        {
+            Eigen::MatrixXd Sigma_i = Eigen::Map<Eigen::MatrixXd>(Sigma.col(ii).data(), dE, dE);
+            std::tuple<Eigen::VectorXd, Eigen::VectorXd> B = ellipsoid_bounding_box(mu.col(ii), Sigma_i, tau);
+            box_mins .col(ii) = std::get<0>(B);
+            box_maxes.col(ii) = std::get<1>(B);
+        }
+    }
+
     void update_tau( double new_tau )
     {
         if ( new_tau < 0.0 )
         {
-            throw std::invalid_argument( "negative tau given (tau must be non-negative)" );
+            throw std::invalid_argument( "negative tau given" );
         }
         tau = new_tau;
 
+        update_bounding_boxes();
+        ellipsoid_aabb.build_tree(box_mins, box_maxes);
+    }
+
+    std::tuple<std::vector<int>, std::vector<double>> // (new_batch, squared_distances)
+        pick_ellipsoid_batch(const std::vector<std::vector<int>> & old_batches,
+                             const std::vector<double>           & old_squared_distances,
+                             const double                        & min_vol_rtol)
+    {
+        const double min_vol = min_vol_rtol * vol.maxCoeff();
+
+        std::vector<bool> is_pickable(N);
         for ( int ii=0; ii<N; ++ii )
         {
-            Eigen::Map<const Eigen::MatrixXd> Sigma_i(Sigma.col(ii).data(), dE, dE);
-            std::tuple<Eigen::VectorXd, Eigen::VectorXd> B = ellipsoid_bounding_box(mu.col(ii), Sigma_i, tau);
-            box_mins.col(ii) = std::get<0>(B);
-            box_maxes.col(ii) = std::get<1>(B);
+            is_pickable[ii] = (vol[ii] > min_vol);
         }
-        ellipsoid_aabb = AABB::AABBTree(box_mins, box_maxes);
-    }
-};
 
-
-EllipsoidForest create_ellipsoid_forest( const std::vector<Eigen::VectorXd> & reference_points_list,
-                                         const std::vector<double>          & vol_list,
-                                         const std::vector<Eigen::VectorXd> & mu_list,
-                                         const std::vector<Eigen::MatrixXd> & Sigma_list,
-                                         const double                         tau )
-{
-    if ( tau < 0.0 )
-    {
-        throw std::invalid_argument( "negative tau given (tau must be non-negative)" );
-    }
-
-    int N = mu_list.size();
-    if (N <= 0)
-    {
-        throw std::invalid_argument( "No ellipsoids given. Cannot infer spatial dimension" );
-    }
-    if (reference_points_list.size() != N)
-    {
-        throw std::invalid_argument( "reference_points_list.size() != mu_list.size()" );
-    }
-    if (vol_list.size() != N)
-    {
-        throw std::invalid_argument( "vol_list.size() != mu_list.size()" );
-    }
-    if (Sigma_list.size() != N)
-    {
-        throw std::invalid_argument( "Sigma_list.size() != mu_list.size()" );
-    }
-
-    int dE = mu_list[0].size();
-    int dR = reference_points_list[0].size();
-    Eigen::MatrixXd reference_points(dR,    N);
-    Eigen::VectorXd vol             (N);
-    Eigen::MatrixXd mu              (dE,    N);
-    Eigen::MatrixXd Sigma           (dE*dE, N);
-    for ( int ii=0; ii<N; ++ii )
-    {
-        if ( reference_points_list[ii].size() != dR )
+        for ( std::vector<int> batch : old_batches)
         {
-            throw std::invalid_argument( "inconsistent sizes in reference_points_list" );
-        }
-        reference_points.col(ii) = reference_points_list[ii];
-
-        vol(ii) = vol_list[ii];
-
-        if ( mu_list[ii].size() != dE )
-        {
-            throw std::invalid_argument( "inconsistent sizes in mu_list" );
-        }
-        mu.col(ii) = mu_list[ii];
-
-        if ( Sigma_list[ii].rows() != dE )
-        {
-            throw std::invalid_argument( "inconsistent row sizes in Sigma_list" );
-        }
-        if ( Sigma_list[ii].cols() != dE )
-        {
-            throw std::invalid_argument( "inconsistent col sizes in Sigma_list" );
-        }
-        Sigma.col(ii) = Eigen::Map<const Eigen::VectorXd>(Sigma_list[ii].data(), dE*dE);
-    }
-
-    Eigen::MatrixXd Sigma_eigenvectors(dE*dE, N);
-    Eigen::MatrixXd Sigma_eigenvalues (dE,    N);
-    Eigen::MatrixXd iSigma            (dE*dE, N);
-    Eigen::MatrixXd sqrt_Sigma        (dE*dE, N);
-    Eigen::MatrixXd isqrt_Sigma       (dE*dE, N);
-    Eigen::VectorXd det_sqrt_Sigma    (N);
-    for ( int ii=0; ii<N; ++ii )
-    {
-        Eigen::Map<const Eigen::MatrixXd> Sigma_i(Sigma.col(ii).data(), dE, dE);
-        Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es(Sigma_i);
-        Eigen::MatrixXd P   = es.eigenvectors();
-        Eigen::MatrixXd iP  = P.inverse();
-
-        Eigen::VectorXd dd       = es.eigenvalues();
-        Eigen::VectorXd idd      = dd.array().inverse().matrix();
-        Eigen::VectorXd sqrt_dd  = dd.array().sqrt().matrix();
-        Eigen::VectorXd isqrt_dd = sqrt_dd.array().inverse().matrix();
-
-        Eigen::MatrixXd iSigma_i         = P * idd.asDiagonal()      * iP;
-        Eigen::MatrixXd sqrt_Sigma_i     = P * sqrt_dd.asDiagonal()  * iP;
-        Eigen::MatrixXd isqrt_Sigma_i    = P * isqrt_dd.asDiagonal() * iP;
-
-        Sigma_eigenvalues .col(ii) = dd;
-        Sigma_eigenvectors.col(ii) = Eigen::Map<Eigen::VectorXd>(P            .data(), dE*dE);
-        iSigma            .col(ii) = Eigen::Map<Eigen::VectorXd>(iSigma_i     .data(), dE*dE);
-        sqrt_Sigma        .col(ii) = Eigen::Map<Eigen::VectorXd>(sqrt_Sigma_i .data(), dE*dE);
-        isqrt_Sigma       .col(ii) = Eigen::Map<Eigen::VectorXd>(isqrt_Sigma_i.data(), dE*dE);
-
-        det_sqrt_Sigma(ii) = sqrt_dd.prod();
-    }
-
-    Eigen::MatrixXd box_mins(dE, N);
-    Eigen::MatrixXd box_maxes(dE, N);
-    for ( int ii=0; ii<N; ++ii )
-    {
-        Eigen::Map<const Eigen::MatrixXd> Sigma_i(Sigma.col(ii).data(), dE, dE);
-        std::tuple<Eigen::VectorXd, Eigen::VectorXd> B = ellipsoid_bounding_box(mu.col(ii), Sigma_i, tau);
-        box_mins.col(ii) = std::get<0>(B);
-        box_maxes.col(ii) = std::get<1>(B);
-    }
-    AABB::AABBTree ellipsoid_aabb(box_mins, box_maxes);
-
-    KDT::KDTree reference_kdtree(reference_points);
-
-    return EllipsoidForest{ reference_points, 
-                            vol, mu, Sigma, tau, 
-                            dE, dR, N,
-                            Sigma_eigenvectors, Sigma_eigenvalues,
-                            iSigma, sqrt_Sigma, isqrt_Sigma, det_sqrt_Sigma, 
-                            box_mins, box_maxes,
-                            ellipsoid_aabb, reference_kdtree };
-}
-
-std::tuple<std::vector<int>, std::vector<double>> // (new_batch, squared_distances)
-    pick_ellipsoid_batch(const std::vector<std::vector<int>> & old_batches,
-                         const std::vector<double>           & old_squared_distances,
-                         const EllipsoidForest               & EF,
-                         const double                        & min_vol_rtol)
-{
-    const double min_vol = min_vol_rtol * EF.vol.maxCoeff();
-
-    std::vector<bool> is_pickable(EF.N);
-    for ( int ii=0; ii<EF.N; ++ii )
-    {
-        is_pickable[ii] = (EF.vol[ii] > min_vol);
-    }
-
-    for ( std::vector<int> batch : old_batches)
-    {
-        for ( int k : batch)
-        {
-            is_pickable[k] = false;
-        }
-    }
-
-    std::vector<int> candidate_inds(EF.N);
-    std::iota(candidate_inds.begin(), candidate_inds.end(), 0);
-    stable_sort(candidate_inds.begin(), candidate_inds.end(),
-        [&old_squared_distances](int i1, int i2) 
-            {return old_squared_distances[i1] > old_squared_distances[i2];});
-
-    std::vector<int> next_batch;
-    for ( int idx1 : candidate_inds )
-    {
-        if ( is_pickable[idx1] )
-        {
-            next_batch.push_back(idx1);
-            is_pickable[idx1] = false;
-            Eigen::Map<const Eigen::MatrixXd> Sigma1(EF.Sigma.col(idx1).data(), EF.dE, EF.dE);
-            std::tuple<Eigen::VectorXd, Eigen::VectorXd> B = ellipsoid_bounding_box(EF.mu.col(idx1), Sigma1, EF.tau);
-            Eigen::VectorXi possible_collisions = EF.ellipsoid_aabb.box_collisions(std::get<0>(B), std::get<1>(B));
-            for ( int jj=0; jj<possible_collisions.size(); ++jj )
+            for ( int k : batch)
             {
-                int idx2 = possible_collisions[jj];
-                if ( is_pickable[idx2] )
+                is_pickable[k] = false;
+            }
+        }
+
+        std::vector<int> candidate_inds(N);
+        std::iota(candidate_inds.begin(), candidate_inds.end(), 0);
+        stable_sort(candidate_inds.begin(), candidate_inds.end(),
+            [&old_squared_distances](int i1, int i2) 
+                {return old_squared_distances[i1] > old_squared_distances[i2];});
+
+        std::vector<int> next_batch;
+        for ( int idx1 : candidate_inds )
+        {
+            if ( is_pickable[idx1] )
+            {
+                next_batch.push_back(idx1);
+                is_pickable[idx1] = false;
+                Eigen::Map<const Eigen::MatrixXd> Sigma1(Sigma.col(idx1).data(), dE, dE);
+                std::tuple<Eigen::VectorXd, Eigen::VectorXd> B = ellipsoid_bounding_box(mu.col(idx1), Sigma1, tau);
+                Eigen::VectorXi possible_collisions = ellipsoid_aabb.box_collisions(std::get<0>(B), std::get<1>(B));
+                for ( int jj=0; jj<possible_collisions.size(); ++jj )
                 {
-                    Eigen::Map<const Eigen::MatrixXd> Sigma2(EF.Sigma.col(idx2).data(), EF.dE, EF.dE);
-                    if ( ellipsoids_intersect(EF.mu.col(idx2), Sigma2,
-                                              EF.mu.col(idx1), Sigma1,
-                                              EF.tau) )
+                    int idx2 = possible_collisions[jj];
+                    if ( is_pickable[idx2] )
                     {
-                        is_pickable[idx2] = false;
+                        Eigen::Map<const Eigen::MatrixXd> Sigma2(Sigma.col(idx2).data(), dE, dE);
+                        if ( ellipsoids_intersect(mu.col(idx2), Sigma2,
+                                                  mu.col(idx1), Sigma1,
+                                                  tau) )
+                        {
+                            is_pickable[idx2] = false;
+                        }
                     }
                 }
             }
         }
-    }
 
-    std::vector<double> squared_distances = old_squared_distances;
-    for ( int ind : next_batch )
-    {
-        for ( int ii=0; ii<EF.N; ++ii )
+        std::vector<double> squared_distances = old_squared_distances;
+        for ( int ind : next_batch )
         {
-            double old_dsq = old_squared_distances[ii];
-            double new_dsq = (EF.reference_points.col(ind) - EF.reference_points.col(ii)).squaredNorm();
-            if ( new_dsq < old_dsq || old_dsq < 0.0 )
+            for ( int ii=0; ii<N; ++ii )
             {
-                squared_distances[ii] = new_dsq;
+                double old_dsq = old_squared_distances[ii];
+                double new_dsq = (reference_points.col(ind) - reference_points.col(ii)).squaredNorm();
+                if ( new_dsq < old_dsq || old_dsq < 0.0 )
+                {
+                    squared_distances[ii] = new_dsq;
+                }
             }
         }
+
+        return std::make_tuple(next_batch, squared_distances);
     }
 
-    return std::make_tuple(next_batch, squared_distances);
-}
+};
+
+
+
 
 
 } // end namespace ELLIPSOID
