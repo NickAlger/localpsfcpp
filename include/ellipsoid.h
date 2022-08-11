@@ -101,13 +101,12 @@ struct EllipsoidForest
     Eigen::MatrixXd iSigma;             // shape=(d*d, N)
     Eigen::MatrixXd sqrt_Sigma;         // shape=(d*d, N)
     Eigen::MatrixXd isqrt_Sigma;        // shape=(d*d, N)
-    Eigen::VectorXd det_sqrt_Sigma;     // shape=(d*d, N)
+    Eigen::VectorXd det_sqrt_Sigma;     // shape=(N,)
 
     Eigen::MatrixXd box_mins;  // shape=(d, N)
     Eigen::MatrixXd box_maxes; // shape=(d, N)
     
     AABB::AABBTree ellipsoid_aabb;
-    KDT::KDTree    reference_kdtree;
 
     EllipsoidForest( const std::vector<double>          & vol_list,
                      const std::vector<Eigen::VectorXd> & mu_list,
@@ -193,6 +192,59 @@ struct EllipsoidForest
         update_bounding_boxes();
         ellipsoid_aabb.build_tree(box_mins, box_maxes);
     }
+
+    // Create a subforest from a bigger forest
+    EllipsoidForest( const EllipsoidForest & bigger_EF, const std::vector<int> & subforest_inds )
+    {
+        d = bigger_EF.d;
+
+        N = subforest_inds.size();
+        for ( int ii=0; ii<N; ++ii )
+        {
+            if ( subforest_inds[ii] < 0 )
+            {
+                throw std::invalid_argument( "subforest_inds[ii] < 0" );
+            }
+            if ( subforest_inds[ii] >= bigger_EF.N )
+            {
+                throw std::invalid_argument( "subforest_inds[ii] >= bigger_EF.N" );
+            }
+        }
+
+        tau = bigger_EF.tau;
+        
+        vol  .resize(N);
+        det_sqrt_Sigma.resize(N);
+
+        mu   .resize(d,   N);
+        Sigma.resize(d*d, N);
+        Sigma_eigenvectors.resize(d*d, N);
+        Sigma_eigenvalues.resize(d, N);
+        iSigma.resize(d*d, N);
+        sqrt_Sigma.resize(d*d, N);
+        isqrt_Sigma.resize(d*d, N);
+        box_mins.resize(d, N);
+        box_maxes.resize(d, N);
+        for ( int ii=0; ii<N; ++ii )
+        {
+            int ind = subforest_inds[ii]
+
+            vol           (ii) = bigger_EF.vol           (ind);
+            det_sqrt_Sigma(ii) = bigger_EF.det_sqrt_Sigma(ind);
+
+            mu                .col(ii) = bigger_EF   .mu                .col(ind);
+            Sigma             .col(ii) = bigger_EF   .Sigma             .col(ind);
+            Sigma_eigenvectors.col(ii) = bigger_EF   .Sigma_eigenvectors.col(ind);
+            Sigma_eigenvalues .col(ii) = bigger_EF   .Sigma_eigenvalues .col(ind);
+            iSigma            .col(ii) = bigger_EF   .iSigma            .col(ind);
+            sqrt_Sigma        .col(ii) = bigger_EF   .sqrt_Sigma        .col(ind);
+            isqrt_Sigma       .col(ii) = bigger_EF   .isqrt_Sigma       .col(ind);
+            box_mins          .col(ii) = bigger_EF   .box_mins          .col(ind);
+            box_maxes         .col(ii) = bigger_EF   .box_maxes         .col(ind);
+        }
+
+        ellipsoid_aabb.build_tree(box_mins, box_maxes);
+    } 
 
     void update_bounding_boxes()
     {

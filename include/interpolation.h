@@ -66,22 +66,72 @@ double tps_interpolate( const Eigen::VectorXd & function_at_rbf_points,
     return function_at_eval_point;
 }
 
+struct ImpulseResponseBatch
+{
+    Eigen::VectorXd            eta;
+    Eigen::MatrixXd            points;
+    Eigen::VectorXd            weights;
+    ELLIPSOID::EllipsoidForest ellipsoids;
+
+    int dS; // Spatial dimension of source space
+    int dT; // Spatial dimension of target space
+    int N;  // number of sample points
+
+    ImpulseResponseBatch( const Eigen::VectorXd            & eta_input, 
+                          const std::vector<int>           & inds,
+                          const std::vector<double>        & weights_input,
+                          const Eigen::MatrixXd            & source_coords,
+                          const ELLIPSOID::EllipsoidForest & target_EF )
+        : ellipsoids( target_EF, inds )
+    {
+        N = eta_input.size();
+        if ( inds.size() != N )
+        {
+            throw std::invalid_argument( "inds.size() != N" );
+        }
+        if ( weights_input.size() != N )
+        {
+            throw std::invalid_argument( "weights_input.size() != N" );
+        }
+
+        dS = source_coords.rows();
+        dT = target_EF.d;
+
+        eta = eta_input;
+        
+        points.resize(dS, N);
+        for ( int ii=0; ii<N; ++ii )
+        {
+            points.col(ii) = source_coords.col(inds[ii]);
+        }
+
+        weights.resize(N);
+        for ( int ii=0; ii<N; ++ii )
+        {
+            weights(ii) = weights_input[ii];
+        }
+    }
+}
 
 // Local local mean displacement invariance points and values
 std::vector<std::pair<Eigen::VectorXd, double>> 
-    lmdi_points_and_values(const Eigen::VectorXd              & y, // 2d/3d
-                           const Eigen::VectorXd              & x, // 2d/3d
+    lmdi_points_and_values(const int             & target_ind,
+                           const int             & source_ind,
+                           const Eigen::MatrixXd & source_coords, // shape=(dS, NS) 
+                           const Eigen::MatrixXd & target_coords, // shape=(dT, NT)
+                           const KDT::KDTree     & source_kdtree,
                            const std::vector<Eigen::VectorXd> & impulse_response_batches,
                            const std::vector<int>             & point2batch,
                            const SMESH::SimplexMesh           & mesh,
-                           const std::vector<double>          & mesh_vertex_vol,
-                           const std::vector<Eigen::VectorXd> & mesh_vertex_mu,
-                           const std::vector<Eigen::MatrixXd> & mesh_vertex_Sigma,
+                           const ELLIPSOID::EllipsoidForest   & EF,
+                        //    const std::vector<double>          & mesh_vertex_vol,
+                        //    const std::vector<Eigen::VectorXd> & mesh_vertex_mu,
+                        //    const std::vector<Eigen::MatrixXd> & mesh_vertex_Sigma,
                            const std::vector<Eigen::VectorXd> & sample_points,
                            const std::vector<double>          & sample_vol,
                            const std::vector<Eigen::VectorXd> & sample_mu,
                            const std::vector<Eigen::MatrixXd> & sample_Sigma,
-                           const double                       & tau,
+                        //    const double                       & tau,
                            const int                          & num_neighbors,
                            const KDT::KDTree                  & sample_points_kdtree)
 {
