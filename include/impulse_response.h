@@ -11,7 +11,7 @@
 #include "ellipsoid.h"
 
 
-namespace IMPULSERESPONSE {
+namespace IMPULSE {
 
 // apply_A    : L2(Omega_in)  -> L2'(Omega_out)
 // apply_AT   : L2(Omega_out) -> L2'(Omega_in)
@@ -109,113 +109,5 @@ Eigen::VectorXd compute_impulse_response_batch(const std::function<Eigen::Vector
 
     return solve_M_out(apply_A(solve_M_in(dirac_comb)));
 }
-
-// struct ImpulseResponseBatch
-// {
-//     Eigen::VectorXd            eta;
-//     Eigen::MatrixXd            points;
-//     Eigen::VectorXd            weights;
-//     ELLIPSOID::EllipsoidForest ellipsoids;
-
-//     int dS; // Spatial dimension of source space
-//     int dT; // Spatial dimension of target space
-//     int N;  // number of sample points
-
-//     ImpulseResponseBatch( const Eigen::VectorXd            & eta_input, 
-//                           const std::vector<int>           & inds,
-//                           const std::vector<double>        & weights_input,
-//                           const Eigen::MatrixXd            & source_coords,
-//                           const ELLIPSOID::EllipsoidForest & target_EF )
-//         : ellipsoids( target_EF, inds )
-//     {
-//         N = eta_input.size();
-//         if ( inds.size() != N )
-//         {
-//             throw std::invalid_argument( "inds.size() != N" );
-//         }
-//         if ( weights_input.size() != N )
-//         {
-//             throw std::invalid_argument( "weights_input.size() != N" );
-//         }
-
-//         dS = source_coords.rows();
-//         dT = target_EF.d;
-
-//         eta = eta_input;
-        
-//         points.resize(dS, N);
-//         for ( int ii=0; ii<N; ++ii )
-//         {
-//             points.col(ii) = source_coords.col(inds[ii]);
-//         }
-
-//         weights.resize(N);
-//         for ( int ii=0; ii<N; ++ii )
-//         {
-//             weights(ii) = weights_input[ii];
-//         }
-//     }
-// };
-
-// struct ImpulseResponseBatches
-// {
-//     std::vector<ImpulseResponseBatch> batches;
-//     std::vector<int>                  point2batch;
-//     std::vector<int>                  batch2point_start;
-//     std::vector<int>                  batch2point_stop;
-//     KDT::KDTree                       kdtree;
-
-//     int dS=-1; // Spatial dimension of source space
-//     int dT=-1; // Spatial dimension of target space
-//     int num_pts=0;
-//     int num_batches=0;
-
-//     void build_kdtree()
-//     {
-//         if ( num_pts > 0 )
-//         {
-//             Eigen::MatrixXd all_sample_points(dS, num_pts);
-//             for ( int ii=0; ii<num_pts; ++ii )
-//             {
-//                 int b = point2batch[ii];
-//                 int k = ii - batch2point_start[b];
-//                 all_sample_points.col(k) = batches[b].points.col(k);
-//             }
-//             kdtree.build_tree(all_sample_points);
-//         }
-//     }
-
-//     void add_batch(ImpulseResponseBatch & B)
-//     {
-//         if ( dS < 0 )
-//         {
-//             dS = B.dS;
-//         }
-//         else if ( B.dS != dS )
-//         {
-//             throw std::invalid_argument( "B.dS != dS" );
-//         }
-//         if ( dT < 0 )
-//         {
-//             dT = B.dT;
-//         }
-//         else if ( B.dT != dT )
-//         {
-//             throw std::invalid_argument( "B.dT != dT" );
-//         }
-
-//         for ( int ii=0; ii<B.N; ++ii )
-//         {
-//             point2batch.push_back(num_batches);
-//         }
-//         batch2point_start.push_back(num_pts);
-//         batch2point_stop.push_back(num_pts + B.N);
-//         batches.push_back(B);
-//         num_pts += B.N;
-//         num_batches += 1;
-
-//         build_kdtree();
-//     }
-// };
 
 }
