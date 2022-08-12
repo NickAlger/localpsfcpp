@@ -32,7 +32,7 @@ using namespace SMESH;
 using namespace BRENT;
 using namespace ELLIPSOID;
 using namespace INTERP;
-using namespace IMPULSERESPONSE;
+using namespace IMPULSE;
 
 
 PYBIND11_MODULE(localpsfcpp, m) {
@@ -63,42 +63,6 @@ PYBIND11_MODULE(localpsfcpp, m) {
 
     m.def("brent_minimize", &brent_minimize);
     m.def("ellipsoids_intersect", &ellipsoids_intersect);
-
-    // py::class_<EllipsoidBatchPicker>(m, "EllipsoidBatchPicker")
-    //     .def(py::init< const std::vector<Eigen::VectorXd>,
-    //                    const std::vector<double>,
-    //                    const std::vector<Eigen::VectorXd>,
-    //                    const std::vector<Eigen::MatrixXd>,
-    //                    const double,
-    //                    const double>())
-    //     .def_readwrite("batches", &EllipsoidBatchPicker::batches)
-    //     .def("pick_batch", &EllipsoidBatchPicker::pick_batch);
-
-    // py::class_<EllipsoidForest>(m, "EllipsoidForest")
-    //     .def(py::init< 
-    //     // const std::vector<Eigen::VectorXd> &, // reference_points_list,
-    //                    const std::vector<double>          &, // vol_list,
-    //                    const std::vector<Eigen::VectorXd> &, // mu_list,
-    //                    const std::vector<Eigen::MatrixXd> &, // Sigma_list,
-    //                    const double                          // initial_tau 
-    //                  >())
-    //     .def_readwrite("vol",                &EllipsoidForest::vol)
-    //     .def_readwrite("mu",                 &EllipsoidForest::mu)
-    //     .def_readwrite("Sigma",              &EllipsoidForest::Sigma)
-    //     .def_readwrite("tau",                &EllipsoidForest::tau)
-    //     .def_readwrite("d",                  &EllipsoidForest::d)
-    //     .def_readwrite("N",                  &EllipsoidForest::N)
-    //     .def_readwrite("Sigma_eigenvectors", &EllipsoidForest::Sigma_eigenvectors)
-    //     .def_readwrite("Sigma_eigenvalues",  &EllipsoidForest::Sigma_eigenvalues)
-    //     .def_readwrite("iSigma",             &EllipsoidForest::iSigma)
-    //     .def_readwrite("sqrt_Sigma",         &EllipsoidForest::sqrt_Sigma)
-    //     .def_readwrite("isqrt_Sigma",        &EllipsoidForest::isqrt_Sigma)
-    //     .def_readwrite("det_sqrt_Sigma",     &EllipsoidForest::det_sqrt_Sigma)
-    //     .def_readwrite("box_mins",           &EllipsoidForest::box_mins)
-    //     .def_readwrite("box_maxes",          &EllipsoidForest::box_maxes)
-    //     .def_readwrite("ellipsoid_aabb",     &EllipsoidForest::ellipsoid_aabb)
-    //     .def("update_tau", &EllipsoidForest::update_tau)
-    //     .def("pick_ellipsoid_batch", &EllipsoidForest::pick_ellipsoid_batch);
 
     m.def("compute_impulse_response_moments", &compute_impulse_response_moments);
     m.def("compute_impulse_response_batch", &compute_impulse_response_batch);

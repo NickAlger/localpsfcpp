@@ -9,6 +9,7 @@
 #include "kdtree.h"
 #include "simplexmesh.h"
 #include "interpolation.h"
+#include "impulse_response.h"
 
 namespace PCK {
 
@@ -339,5 +340,211 @@ public:
     virtual HLIB::matform_t  matrix_format  () const { return HLIB::MATFORM_NONSYM; }
 
 };
+
+
+struct LPSFKernel
+{
+    const int dS; // geometric dimension of source space (e.g., 1, 2, or 3)
+    const int dT; // geometric dimension of target space (e.g., 1, 2, or 3)
+    const int NS; // number of d.o.f.'s in the source space (e.g., thoudands, millions)
+    const int NT; // number of d.o.f.'s in the target space (e.g., thoudands, millions)
+
+    const Eigen::MatrixXd    source_vertices; // shape=(dS, NS) 
+    const Eigen::MatrixXd    target_vertices; // shape=(dT, NT)
+    const SMESH::SimplexMesh target_mesh;
+
+    const std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_A;     // R^NS -> R^NT, x -> A     * x
+    const std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_AT;    // R^NT -> R^NS, x -> A^T   * x
+    const std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_M_in;  // R^NS -> R^NS, x -> M_in  * x
+    const std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_M_out; // R^NT -> R^NT, x -> M_out * x
+    const std::function<Eigen::VectorXd(Eigen::VectorXd)> solve_M_in;  // R^NS -> R^NS, y -> M_in  \ y
+    const std::function<Eigen::VectorXd(Eigen::VectorXd)> solve_M_out; // R^NT -> R^NT, y -> M_out \ y
+
+    std::vector<double>          vol;            // size=NS
+    std::vector<Eigen::VectorXd> mu;             // size=NS, elm_size=dT
+    std::vector<Eigen::MatrixXd> Sigma;          // size=NS, elm_shape=(dT,dT)
+    std::vector<bool>            Sigma_is_good;  // size=NS
+    std::vector<Eigen::MatrixXd> inv_Sigma;      // size=NS, elm_shape=(dT,dT)
+    std::vector<Eigen::MatrixXd> sqrt_Sigma;     // size=NS, elm_shape=(dT,dT)
+    std::vector<Eigen::MatrixXd> inv_sqrt_Sigma; // size=NS, elm_shape=(dT,dT)
+    std::vector<double>          det_sqrt_Sigma; // size=NS
+    double                       tau;
+    AABB::AABBTree               ellipsoid_aabb;
+
+    std::vector<Eigen::VectorXd> eta_batches;   // size=num_batches, elm_size=NT
+    std::vector<int>             dirac_inds;    // size=num_impulses
+    std::vector<double>          dirac_weights; // size=num_impulses
+    std::vector<int>             dirac2batch;   // size=num_impulses
+    KDT::KDTree                  dirac_kdtree;
+
+    int num_neighbors; // number of nearby impulses used in interpolation
+
+    LPSFKernel( const std::function<Eigen::VectorXd(Eigen::VectorXd)> & apply_A,     // R^NS -> R^NT, x -> A     * x
+                const std::function<Eigen::VectorXd(Eigen::VectorXd)> & apply_AT,    // R^NT -> R^NS, x -> A^T   * x
+                const std::function<Eigen::VectorXd(Eigen::VectorXd)> & apply_M_in,  // R^NS -> R^NS, x -> M_in  * x
+                const std::function<Eigen::VectorXd(Eigen::VectorXd)> & apply_M_out, // R^NT -> R^NT, x -> M_out * x
+                const std::function<Eigen::VectorXd(Eigen::VectorXd)> & solve_M_in,  // R^NS -> R^NS, y -> M_in  \ y
+                const std::function<Eigen::VectorXd(Eigen::VectorXd)> & solve_M_out, // R^NT -> R^NT, y -> M_out \ y
+                const Eigen::MatrixXd & source_vertices, // shape=(dS,   NS)
+                const Eigen::MatrixXd & target_vertices, // shape=(dT,   NT)
+                const Eigen::MatrixXi & target_cells,    // shape=(dT+1, num_cells)
+                double tau,
+                int    num_neighbors,
+                int    num_initial_batches ) : 
+        dS(source_vertices.rows()), NS(source_vertices.cols()), 
+        dT(target_vertices.rows()), NT(target_vertices.cols()),
+        source_vertices(source_vertices), target_vertices(target_vertices),
+        target_mesh(target_vertices, target_cells),
+        apply_A(apply_A),       apply_AT(apply_AT), 
+        apply_M_in(apply_M_in), apply_M_out(apply_M_out), 
+        solve_M_in(solve_M_in), solve_M_out(solve_M_out),
+        tau(tau), num_neighbors(num_neighbors)
+    {
+        std::tuple<std::vector<double>, std::vector<Eigen::VectorXd>, std::vector<Eigen::MatrixXd>> 
+           moments = IMPULSE::compute_impulse_response_moments(apply_AT, solve_M_in, target_vertices);
+        vol   = std::get<0>(moments);
+        mu    = std::get<1>(moments);
+        std::vector<Eigen::MatrixXd> Sigma0 = std::get<2>(moments);
+
+        for ( int ii=0; ii<NS; ++ii )
+        {
+            std::tuple< Eigen::MatrixXd, bool, 
+                        Eigen::MatrixXd, Eigen::MatrixXd, Eigen::MatrixXd, double, 
+                        Eigen::VectorXd, Eigen::MatrixXd >
+                Sigma_stuff = ELLIPSOID::postprocess_covariance( Sigma0[ii] );
+
+            Sigma[ii]          = std::get<0>(Sigma_stuff);
+            Sigma_is_good[ii]  = std::get<1>(Sigma_stuff);
+            inv_Sigma[ii]      = std::get<2>(Sigma_stuff);
+            sqrt_Sigma[ii]     = std::get<3>(Sigma_stuff);
+            inv_sqrt_Sigma[ii] = std::get<4>(Sigma_stuff);
+            det_sqrt_Sigma[ii] = std::get<5>(Sigma_stuff);
+        }
+
+        ellipsoid_aabb = ELLIPSOID::make_ellipsoid_aabbtree(mu, Sigma, tau);
+
+    }
+
+    void add_batch()
+    {
+
+    }
+
+
+
+    ProductConvolutionKernelRBF( std::shared_ptr<ImpulseResponseBatches> col_batches,
+                                         std::vector<Eigen::VectorXd>            col_coords,
+                                         std::vector<Eigen::VectorXd>            row_coords)
+        : col_batches(col_batches),
+          row_coords(row_coords),
+          col_coords(col_coords)
+    {
+        std::cout << "Using ProductConvolutionKernelRBFColsOnly!" << std::endl;
+        dim = col_batches->dim;
+    }
+
+    double eval_integral_kernel(const Eigen::VectorXd & y,
+                                const Eigen::VectorXd & x ) const
+    {
+        std::vector<std::pair<Eigen::VectorXd, double>> points_and_values;
+        if ( col_batches->num_pts() > 0 )
+        {
+            points_and_values = col_batches->interpolation_points_and_values(y, x, mean_shift, vol_preconditioning); // forward
+        }
+
+        int actual_num_pts = points_and_values.size();
+        double kernel_value = 0.0;
+
+        int exact_column_index = -1;
+        for ( int ii=0; ii<actual_num_pts; ++ii )
+        {
+            if ( points_and_values[ii].first.norm() < 1e-9 )
+            {
+                exact_column_index = ii;
+                kernel_value = points_and_values[ii].second;
+                break;
+            }
+        }
+
+        if ( exact_column_index < 0 )
+        {
+            if ( actual_num_pts > 0 )
+            {
+                Eigen::MatrixXd P(dim, actual_num_pts);
+                Eigen::VectorXd F(actual_num_pts);
+                for ( int jj=0; jj<actual_num_pts; ++jj )
+                {
+                    P.col(jj) = points_and_values[jj].first;
+                    F(jj)     = points_and_values[jj].second;
+                }
+                kernel_value = INTERP::tps_interpolate( F, P, Eigen::MatrixXd::Zero(dim,1) );
+            }
+        }
+
+        return kernel_value;
+    }
+
+    double eval_matrix_entry(const int row_ind,
+                             const int col_ind ) const
+    {
+        return eval_integral_kernel(row_coords[row_ind], col_coords[col_ind]);
+    }
+
+    void eval  ( const std::vector< HLIB::idx_t > &  rowidxs,
+                 const std::vector< HLIB::idx_t > &  colidxs,
+                 real_t *                            matrix ) const
+    {
+        // Check input sizes
+        bool input_is_good = true;
+        for ( int rr : rowidxs )
+        {
+            if ( rr < 0 )
+            {
+                std::string error_message = "Negative row index. rr=";
+                error_message += std::to_string(rr);
+                throw std::invalid_argument( error_message );
+            }
+            else if ( rr >= row_coords.size() )
+            {
+                std::string error_message = "Row index too big. rr=";
+                error_message += std::to_string(rr);
+                error_message += ", row_coords.size()=";
+                error_message += std::to_string(row_coords.size());
+                throw std::invalid_argument( error_message );
+            }
+        }
+        for ( int cc : colidxs )
+        {
+            if ( cc < 0 )
+            {
+                std::string error_message = "Negative col index. cc=";
+                error_message += std::to_string(cc);
+                throw std::invalid_argument( error_message );
+            }
+            else if ( cc >= col_coords.size() )
+            {
+                std::string error_message = "Col index too big. cc=";
+                error_message += std::to_string(cc);
+                error_message += ", col_coords.size()=";
+                error_message += std::to_string(col_coords.size());
+                throw std::invalid_argument( error_message );
+            }
+        }
+
+        int nrow = rowidxs.size();
+        int ncol = colidxs.size();
+        for ( size_t  jj = 0; jj < ncol; ++jj )
+        {
+            for ( size_t  ii = 0; ii < nrow; ++ii )
+            {
+                matrix[ jj*nrow + ii ] = eval_matrix_entry(rowidxs[ii], colidxs[jj]);
+                matrix[ jj*nrow + ii ] += 1.0e-14; // Code segfaults without this
+            }
+        }
+
+    }
+
+};
+
 
 } // end namespace PCK
