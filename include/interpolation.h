@@ -3,8 +3,8 @@
 #include <iostream>
 #include <math.h>
 #include <Eigen/Dense>
-#include <hlib.hh>
 #include <Eigen/LU>
+#include <algorithm>
 
 #include "kdtree.h"
 #include "simplexmesh.h"
@@ -15,7 +15,7 @@ namespace INTERP
 {
 
 // Radial basis function interpolation with thin plate spline basis functions
-double tps_interpolate( const Eigen::VectorXd & function_at_rbf_points,
+double TPS_interpolate( const Eigen::VectorXd & function_at_rbf_points,
                         const Eigen::MatrixXd & rbf_points,
                         const Eigen::VectorXd & eval_point )
 {
@@ -66,148 +66,80 @@ double tps_interpolate( const Eigen::VectorXd & function_at_rbf_points,
     return function_at_eval_point;
 }
 
-struct ImpulseResponseBatch
-{
-    Eigen::VectorXd            eta;
-    Eigen::MatrixXd            points;
-    Eigen::VectorXd            weights;
-    ELLIPSOID::EllipsoidForest ellipsoids;
-
-    int dS; // Spatial dimension of source space
-    int dT; // Spatial dimension of target space
-    int N;  // number of sample points
-
-    ImpulseResponseBatch( const Eigen::VectorXd            & eta_input, 
-                          const std::vector<int>           & inds,
-                          const std::vector<double>        & weights_input,
-                          const Eigen::MatrixXd            & source_coords,
-                          const ELLIPSOID::EllipsoidForest & target_EF )
-        : ellipsoids( target_EF, inds )
-    {
-        N = eta_input.size();
-        if ( inds.size() != N )
-        {
-            throw std::invalid_argument( "inds.size() != N" );
-        }
-        if ( weights_input.size() != N )
-        {
-            throw std::invalid_argument( "weights_input.size() != N" );
-        }
-
-        dS = source_coords.rows();
-        dT = target_EF.d;
-
-        eta = eta_input;
-        
-        points.resize(dS, N);
-        for ( int ii=0; ii<N; ++ii )
-        {
-            points.col(ii) = source_coords.col(inds[ii]);
-        }
-
-        weights.resize(N);
-        for ( int ii=0; ii<N; ++ii )
-        {
-            weights(ii) = weights_input[ii];
-        }
-    }
-}
-
 // Local local mean displacement invariance points and values
 std::vector<std::pair<Eigen::VectorXd, double>> 
-    lmdi_points_and_values(const int             & target_ind,
-                           const int             & source_ind,
-                           const Eigen::MatrixXd & source_coords, // shape=(dS, NS) 
-                           const Eigen::MatrixXd & target_coords, // shape=(dT, NT)
-                           const KDT::KDTree     & source_kdtree,
-                           const std::vector<Eigen::VectorXd> & impulse_response_batches,
-                           const std::vector<int>             & point2batch,
-                           const SMESH::SimplexMesh           & mesh,
-                           const ELLIPSOID::EllipsoidForest   & EF,
-                        //    const std::vector<double>          & mesh_vertex_vol,
-                        //    const std::vector<Eigen::VectorXd> & mesh_vertex_mu,
-                        //    const std::vector<Eigen::MatrixXd> & mesh_vertex_Sigma,
-                           const std::vector<Eigen::VectorXd> & sample_points,
-                           const std::vector<double>          & sample_vol,
-                           const std::vector<Eigen::VectorXd> & sample_mu,
-                           const std::vector<Eigen::MatrixXd> & sample_Sigma,
-                        //    const double                       & tau,
-                           const int                          & num_neighbors,
-                           const KDT::KDTree                  & sample_points_kdtree)
+    LMDI_points_and_values(int                                      target_ind,
+                           int                                      source_ind,
+                           const Eigen::MatrixXd                  & source_coords, // shape=(dS, NS) 
+                           const Eigen::MatrixXd                  & target_coords, // shape=(dT, NT)
+                           const SMESH::SimplexMesh               & target_mesh,
+                           const std::vector<double>              & vol,           // size=NS
+                           const std::vector<Eigen::VectorXd>     & mu,            // size=NS, elm_size=dT
+                           const std::vector<Eigen::MatrixXd>     & inv_Sigma,     // size=NS, elm_shape=(dT,dT)
+                           double                                   tau,
+                           const std::vector<Eigen::VectorXd>     & eta_batches,   // size=num_batches, elm_size=NT
+                           const std::vector<int>                 & dirac_inds,    // size=num_diracs
+                           const std::vector<double>              & dirac_weights, // size=num_diracs
+                           const std::vector<int>                 & dirac2batch,   // size=num_diracs
+                           const KDT::KDTree                      & dirac_kdtree,
+                           int                                      num_neighbors)
 {
-    const int dim     = y.size();
+    int dS             = source_coords.rows();
+    int dT             = target_coords.rows();
 
-    std::pair<Eigen::VectorXi, Eigen::MatrixXd> IC_x = mesh.first_point_collision( x );
-    int simplex_ind_x               = IC_x.first(0);
-    Eigen::VectorXd affine_coords_x = IC_x.second.col(0);
+    Eigen::VectorXd x = source_coords.col(source_ind);
+    Eigen::VectorXd y = target_coords.col(target_ind);
+    
+    double          vol_x   = vol[source_ind];
+    Eigen::VectorXd mu_x    = mu [source_ind];
 
-    double   vol_at_x = 0.0;
-    Eigen::VectorXd mu_at_x(dim);
-    mu_at_x.setZero();
-    if ( simplex_ind_x >= 0 ) // if x is in the mesh
+    int num_neighbors2 = std::min(num_neighbors, dirac_kdtree.get_num_pts());
+
+    Eigen::VectorXi nearest_diracs = dirac_kdtree.query( x, num_neighbors2 ).first;
+
+    std::vector<int> nearest_diracs_list(nearest_diracs.size());
+    for ( int ii=0; ii<nearest_diracs.size(); ++ii )
     {
-        for ( int kk=0; kk<dim+1; ++kk )
-        {
-            int vv = mesh.cells(kk, simplex_ind_x);
-            vol_at_x += affine_coords_x(kk) * mesh_vertex_vol[vv];
-            mu_at_x  += affine_coords_x(kk) * mesh_vertex_mu [vv];
-        }
+        nearest_diracs_list[ii] = nearest_diracs(ii);
     }
 
-    std::pair<Eigen::VectorXi, Eigen::VectorXd> nn_result = 
-        sample_points_kdtree.query( x, std::min(num_neighbors, sample_points.size()) );
-    Eigen::VectorXi nearest_inds = nn_result.first;
-
-    int N_nearest = nearest_inds.size();
-
-    std::vector<int>             all_simplex_inds (N_nearest);
-    std::vector<Eigen::VectorXd> all_affine_coords(N_nearest);
-    std::vector<bool>            ind_is_good      (N_nearest);
-    for ( int jj=0; jj<N_nearest; ++jj )
+    std::vector<std::pair<Eigen::VectorXd, double>> points_and_values;
+    points_and_values.reserve(nearest_diracs.size());
+    for ( int dd : nearest_diracs_list )
     {
-        int ind = nearest_inds(jj);
-        Eigen::VectorXd xj = sample_points[ind];
-        Eigen::VectorXd mu_at_xj = sample_mu[ind];
+        int jj = dirac_inds[dd];
+        int b = dirac2batch[dd];
 
-        Eigen::VectorXd z;
-        z = y - mu_at_x + mu_at_xj;
+        double          weight_xj    = dirac_weights[dd];
+        Eigen::VectorXd xj           = source_coords.col(jj);
+        double          vol_xj       = vol[jj];
+        Eigen::VectorXd mu_xj        = mu[jj];
+        Eigen::MatrixXd inv_Sigma_xj = inv_Sigma[jj];
 
-        std::pair<Eigen::VectorXi, Eigen::MatrixXd> IC = mesh.first_point_collision( z );
-        all_simplex_inds[jj]  = IC.first(0);
-        all_affine_coords[jj] = IC.second.col(0);
-        ind_is_good[jj] = ( all_simplex_inds[jj] >= 0 ); // y-x+xi is in mesh => varphi_i(y-x) is defined
-    }
+        Eigen::VectorXd z = y - mu_x + mu_xj;
 
-    std::vector<std::pair<Eigen::VectorXd, double>> good_points_and_values;
-    good_points_and_values.reserve(ind_is_good.size());
-    for ( int jj=0; jj<N_nearest; ++jj )
-    {
-        if ( ind_is_good[jj] )
+        std::pair<Eigen::VectorXi, Eigen::MatrixXd> IC = target_mesh.first_point_collision( z );
+        int             z_simplex_ind   = IC.first(0);
+        Eigen::VectorXd z_affine_coords = IC.second.col(0);
+        if ( z_simplex_ind >= 0 ) // point is good (z is in the mesh)
         {
-            int ind = nearest_inds[jj];
-            Eigen::VectorXd xj          = sample_points[ind];
-            double          vol_at_xj   = sample_vol   [ind];
-            Eigen::VectorXd mu_at_xj    = sample_mu    [ind];
-            Eigen::MatrixXd Sigma_at_xj = sample_Sigma [ind];
-
-            Eigen::VectorXd dp;
-            dp = y - mu_at_x;
-
-
-            double varphi_at_y_minus_x = 0.0;
-            if ( dp.transpose() * Sigma_at_xj.ldlt().solve( dp ) < tau*tau )
+            Eigen::VectorXd dp = y - mu_x;
+            double kernel_value_estimate_from_xj = 0.0;
+            if ( (dp.transpose() * (inv_Sigma_xj * dp )) < (tau * tau) )
             {
-                int b = point2batch[ind];
-                const Eigen::VectorXd & phi_j = impulse_response_batches[b];
-                for ( int kk=0; kk<dim+1; ++kk )
+                double psi_at_z = 0.0;
+                for ( int ii=0; ii<dT+1; ++ii )
                 {
-                    varphi_at_y_minus_x += vol_at_x * all_affine_coords[jj](kk) * phi_j(mesh.cells(kk, all_simplex_inds[jj]));
+                    psi_at_z += z_affine_coords(ii) * eta_batches[b](target_mesh.cells(ii, z_simplex_ind));
                 }
+                psi_at_z /= weight_xj;
+
+                kernel_value_estimate_from_xj = (vol_x / vol_xj) * psi_at_z;
             }
-            good_points_and_values.push_back(std::make_pair(xj - x, varphi_at_y_minus_x));
+            points_and_values.push_back(std::make_pair(xj - x, kernel_value_estimate_from_xj));
         }
     }
-    return good_points_and_values;
+    return points_and_values;
 }
 
 }

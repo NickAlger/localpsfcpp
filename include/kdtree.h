@@ -178,6 +178,11 @@ private:
 public:
     int         block_size = 32;
 
+    int get_num_pts() const
+    {
+        return num_pts;
+    }
+
     KDTree( ) {}
 
     KDTree( const Eigen::Ref<const Eigen::MatrixXd> input_points )
