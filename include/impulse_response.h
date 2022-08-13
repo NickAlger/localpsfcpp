@@ -62,14 +62,14 @@ std::tuple<std::vector<double>,          // all vols, V
         }
     }
 
-    std::cout << "processing V" << std::endl;
+    // std::cout << "processing V" << std::endl;
     std::vector<double> all_vol(N_in);
     for ( int ii=0; ii<N_in; ++ii )
     {
         all_vol[ii] = V(ii);
     }
 
-    std::cout << "processing mu" << std::endl;
+    // std::cout << "processing mu" << std::endl;
     std::vector<Eigen::VectorXd> all_mu(N_in);
     for ( int ii=0; ii<N_in; ++ii )
     {
@@ -81,7 +81,7 @@ std::tuple<std::vector<double>,          // all vols, V
         all_mu[ii] = mu_i;
     }
 
-    std::cout << "processing Sigma" << std::endl;
+    // std::cout << "processing Sigma" << std::endl;
     std::vector<Eigen::MatrixXd> all_Sigma(N_in);
     for ( int ii=0; ii<N_in; ++ii )
     {
@@ -95,7 +95,7 @@ std::tuple<std::vector<double>,          // all vols, V
         }
         all_Sigma[ii] = Sigma_i;
     }
-    std::cout << "done computing moments" << std::endl;
+    // std::cout << "done computing moments" << std::endl;
 
     return std::make_tuple(all_vol, all_mu, all_Sigma);
 }

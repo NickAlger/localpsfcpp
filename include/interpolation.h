@@ -115,14 +115,14 @@ std::vector<std::pair<Eigen::VectorXd, double>>
         Eigen::VectorXd mu_xj        = mu[jj];
         Eigen::MatrixXd inv_Sigma_xj = inv_Sigma[jj];
 
-        Eigen::VectorXd z = y - mu_x + mu_xj;
+        Eigen::VectorXd dp = y - mu_x;
+        Eigen::VectorXd z = dp + mu_xj;
 
         std::pair<Eigen::VectorXi, Eigen::MatrixXd> IC = target_mesh.first_point_collision( z );
         int             z_simplex_ind   = IC.first(0);
         Eigen::VectorXd z_affine_coords = IC.second.col(0);
         if ( z_simplex_ind >= 0 ) // point is good (z is in the mesh)
         {
-            Eigen::VectorXd dp = y - mu_x;
             double kernel_value_estimate_from_xj = 0.0;
             if ( (dp.transpose() * (inv_Sigma_xj * dp )) < (tau * tau) )
             {

@@ -378,6 +378,7 @@ struct LPSFKernel
     std::vector<std::vector<int>> dirac_ind_batches;       // size=num_batches
     std::vector<double>           dirac_squared_distances; // size=NS
     std::vector<int>              dirac_inds;              // size=num_impulses
+    std::vector<Eigen::VectorXd>  dirac_points;            // size=num_impulses, elm_size=dS
     std::vector<double>           dirac_weights;           // size=num_impulses
     std::vector<int>              dirac2batch;             // size=num_impulses
     KDT::KDTree                   dirac_kdtree;
@@ -396,6 +397,7 @@ struct LPSFKernel
         for ( int ind : next_batch_inds )
         {
             dirac_inds.push_back(ind);
+            dirac_points.push_back(source_vertices[ind]);
 
             double w = det_sqrt_Sigma[ind] / vol[ind];
             next_batch_weights.push_back(w);
@@ -405,19 +407,19 @@ struct LPSFKernel
         }
         dirac_ind_batches.push_back(next_batch_inds);
 
-        Eigen::MatrixXd dirac_points(dS, dirac_inds.size());
-        for ( long unsigned int ii=0; ii<dirac_inds.size(); ++ii )
+        Eigen::MatrixXd dirac_points_mat(dS, dirac_inds.size());
+        for ( long unsigned int ii=0; ii<dirac_points.size(); ++ii )
         {
-            dirac_points.col(ii) = source_vertices[dirac_inds[ii]];
+            dirac_points_mat.col(ii) = dirac_points[ii];
         }
-        dirac_kdtree = KDT::KDTree(dirac_points);
+        dirac_kdtree.build_tree(dirac_points_mat);
 
         Eigen::VectorXd next_eta = IMPULSE::compute_impulse_response_batch( apply_A, solve_M_in, solve_M_out, 
                                                                             next_batch_inds, next_batch_weights, NS );
         eta_batches.push_back(next_eta);
     }
 
-    double kernel_entry_LMDI( unsigned long int target_ind, unsigned long int source_ind ) const
+    double entry_LMDI( unsigned long int target_ind, unsigned long int source_ind ) const
     {
         std::vector<std::pair<Eigen::VectorXd, double>> points_and_values
             = INTERP::LMDI_points_and_values(target_ind, source_ind, 
@@ -442,7 +444,7 @@ struct LPSFKernel
         return entry;
     }
 
-    Eigen::MatrixXd kernel_block_LMDI( const std::vector<unsigned long int> & target_inds, 
+    Eigen::MatrixXd block_LMDI( const std::vector<unsigned long int> & target_inds, 
                                        const std::vector<unsigned long int> & source_inds ) const
     {
         int nrow = target_inds.size();
@@ -452,7 +454,7 @@ struct LPSFKernel
         {
             for ( int jj=0; jj<ncol; ++jj )
             {
-                block(ii,jj) = kernel_entry_LMDI( target_inds[ii], source_inds[jj] );
+                block(ii,jj) = entry_LMDI( target_inds[ii], source_inds[jj] );
             }
         }
         return block;
@@ -528,6 +530,7 @@ LPSFKernel create_LPSFKernel(
     std::vector<std::vector<int>> dirac_ind_batches;       // size=num_batches
     std::vector<double>           dirac_squared_distances; // size=NS
     std::vector<int>              dirac_inds;              // size=num_impulses
+    std::vector<Eigen::VectorXd>  dirac_points;            // size=num_impulses, elm_size=dS
     std::vector<double>           dirac_weights;           // size=num_impulses
     std::vector<int>              dirac2batch;             // size=num_impulses
     KDT::KDTree                   dirac_kdtree;
@@ -545,7 +548,7 @@ LPSFKernel create_LPSFKernel(
                        Sigma_is_good, inv_Sigma, sqrt_Sigma, inv_sqrt_Sigma, det_sqrt_Sigma,
                        ellipsoid_aabb, min_vol_rtol,
                        eta_batches, dirac_ind_batches, dirac_squared_distances, 
-                       dirac_inds, dirac_weights, dirac2batch, dirac_kdtree, num_neighbors };
+                       dirac_inds, dirac_points, dirac_weights, dirac2batch, dirac_kdtree, num_neighbors };
 
     for ( int ii=0; ii<num_initial_batches; ++ii )
     {

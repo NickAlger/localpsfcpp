@@ -76,8 +76,8 @@ PYBIND11_MODULE(localpsfcpp, m) {
 
     py::class_<LPSFKernel>(m, "LPSFKernel")
         .def("add_batch",         &LPSFKernel::add_batch)
-        .def("kernel_entry_LMDI", &LPSFKernel::kernel_entry_LMDI)
-        .def("kernel_block_LMDI", &LPSFKernel::kernel_block_LMDI)
+        .def("entry_LMDI", &LPSFKernel::entry_LMDI)
+        .def("block_LMDI", &LPSFKernel::block_LMDI)
         .def_readonly("dS", &LPSFKernel::dS)
         .def_readonly("dT", &LPSFKernel::dT)
         .def_readonly("NS", &LPSFKernel::NS)
@@ -106,6 +106,7 @@ PYBIND11_MODULE(localpsfcpp, m) {
         .def_readwrite("dirac_ind_batches",       &LPSFKernel::dirac_ind_batches)
         .def_readwrite("dirac_squared_distances", &LPSFKernel::dirac_squared_distances)
         .def_readwrite("dirac_inds",              &LPSFKernel::dirac_inds)
+        .def_readwrite("dirac_points",            &LPSFKernel::dirac_points)
         .def_readwrite("dirac_weights",           &LPSFKernel::dirac_weights)
         .def_readwrite("dirac2batch",             &LPSFKernel::dirac2batch)
         .def_readwrite("dirac_kdtree",            &LPSFKernel::dirac_kdtree)
