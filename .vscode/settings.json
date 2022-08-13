@@ -64,6 +64,8 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "eigenvalues": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "forward_list": "cpp",
+        "valarray": "cpp"
     }
 }

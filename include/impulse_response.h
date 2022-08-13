@@ -22,39 +22,54 @@ std::tuple<std::vector<double>,          // all vols, V
            std::vector<Eigen::MatrixXd>> // all covariances, Sigma
     compute_impulse_response_moments(const std::function<Eigen::VectorXd(Eigen::VectorXd)> & apply_AT,
                                      const std::function<Eigen::VectorXd(Eigen::VectorXd)> & solve_M_in,
-                                     const Eigen::MatrixXd &dof_coords_out) // shape=(N_out, gdim_out)
+                                     const Eigen::MatrixXd & dof_coords_out) // shape=(gdim_out, N_out)
 {
-    const int N_out = dof_coords_out.rows();
-    const int d_out = dof_coords_out.cols();
-    Eigen::VectorXd V = solve_M_in(apply_AT(Eigen::VectorXd::Ones(N_out)));
+    const int d_out = dof_coords_out.rows();
+    const int N_out = dof_coords_out.cols();
+
+    std::cout << "computing V" << std::endl;
+    Eigen::VectorXd C = Eigen::VectorXd::Ones(N_out);
+    Eigen::VectorXd V = solve_M_in(apply_AT(C));
     const int N_in = V.size();
 
+    std::cout << "computing mu" << std::endl;
     Eigen::MatrixXd mu(N_in, d_out);
     for ( int ii=0; ii<d_out; ++ii )
     {
-        mu.col(ii) = solve_M_in(apply_AT(dof_coords_out.col(ii))).array() / V.array();
+        std::cout << "ii = " << ii << std::endl;
+        Eigen::VectorXd L_i = dof_coords_out.row(ii);
+        mu.col(ii) = solve_M_in(apply_AT(L_i)).array() / V.array();
     }
 
+    std::cout << "computing Sigma" << std::endl;
     Eigen::MatrixXd Sigma(N_in, d_out*d_out);
     for ( int ii=0; ii<d_out; ++ii )
     {
+        Eigen::VectorXd L_i = dof_coords_out.row(ii);
         for ( int jj=0; jj<=ii; ++jj)
         {
-            const int ind1 = ii + d_out * jj;
-            const int ind2 = jj + d_out * ii;
-            Sigma.col(ind1) = solve_M_in(apply_AT(dof_coords_out.col(ii).array() * 
-                                                  dof_coords_out.col(jj).array())).array() / V.array() 
+            std::cout << "ii = " << ii << ", jj = " << jj << std::endl;
+            Eigen::VectorXd L_j = dof_coords_out.row(jj);
+            Eigen::VectorXd Q_ij = L_i.array() * L_j.array();
+            int ind1 = ii + d_out * jj;
+            int ind2 = jj + d_out * ii;
+            Sigma.col(ind1) = solve_M_in(apply_AT(Q_ij)).array() / V.array() 
                                 - mu.col(ii).array() * mu.col(jj).array();
-            Sigma.col(ind2) = Sigma.col(ind1);
+            if ( ind1 != ind2 )
+            {
+                Sigma.col(ind2) = Sigma.col(ind1);
+            }
         }
     }
 
+    std::cout << "processing V" << std::endl;
     std::vector<double> all_vol(N_in);
     for ( int ii=0; ii<N_in; ++ii )
     {
         all_vol[ii] = V(ii);
     }
 
+    std::cout << "processing mu" << std::endl;
     std::vector<Eigen::VectorXd> all_mu(N_in);
     for ( int ii=0; ii<N_in; ++ii )
     {
@@ -66,6 +81,7 @@ std::tuple<std::vector<double>,          // all vols, V
         all_mu[ii] = mu_i;
     }
 
+    std::cout << "processing Sigma" << std::endl;
     std::vector<Eigen::MatrixXd> all_Sigma(N_in);
     for ( int ii=0; ii<N_in; ++ii )
     {
@@ -79,6 +95,7 @@ std::tuple<std::vector<double>,          // all vols, V
         }
         all_Sigma[ii] = Sigma_i;
     }
+    std::cout << "done computing moments" << std::endl;
 
     return std::make_tuple(all_vol, all_mu, all_Sigma);
 }
@@ -107,6 +124,7 @@ Eigen::VectorXd compute_impulse_response_batch(const std::function<Eigen::Vector
         dirac_comb(dirac_inds[ii]) = dirac_weights[ii];
     }
 
+    std::cout << "computing impulse response batch" << std::endl;
     return solve_M_out(apply_A(solve_M_in(dirac_comb)));
 }
 

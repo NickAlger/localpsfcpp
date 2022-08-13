@@ -501,12 +501,12 @@ LPSFKernel create_LPSFKernel(
     std::vector<Eigen::VectorXd> mu     = std::get<1>(moments);
     std::vector<Eigen::MatrixXd> Sigma0 = std::get<2>(moments);
 
-    std::vector<Eigen::MatrixXd> Sigma;          // size=NS, elm_shape=(dT,dT)
-    std::vector<bool>            Sigma_is_good;  // size=NS
-    std::vector<Eigen::MatrixXd> inv_Sigma;      // size=NS, elm_shape=(dT,dT)
-    std::vector<Eigen::MatrixXd> sqrt_Sigma;     // size=NS, elm_shape=(dT,dT)
-    std::vector<Eigen::MatrixXd> inv_sqrt_Sigma; // size=NS, elm_shape=(dT,dT)
-    std::vector<double>          det_sqrt_Sigma; // size=NS
+    std::vector<Eigen::MatrixXd> Sigma(NS);          // size=NS, elm_shape=(dT,dT)
+    std::vector<bool>            Sigma_is_good(NS);  // size=NS
+    std::vector<Eigen::MatrixXd> inv_Sigma(NS);      // size=NS, elm_shape=(dT,dT)
+    std::vector<Eigen::MatrixXd> sqrt_Sigma(NS);     // size=NS, elm_shape=(dT,dT)
+    std::vector<Eigen::MatrixXd> inv_sqrt_Sigma(NS); // size=NS, elm_shape=(dT,dT)
+    std::vector<double>          det_sqrt_Sigma(NS); // size=NS
     for ( int ii=0; ii<NS; ++ii )
     {
         std::tuple< Eigen::MatrixXd, bool, 
