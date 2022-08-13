@@ -84,7 +84,7 @@ std::vector<std::pair<Eigen::VectorXd, double>>
                            const KDT::KDTree                      & dirac_kdtree,
                            unsigned long int                        num_neighbors)
 {
-    int dT             = target_coords[0].rows();
+    int dT             = target_coords[0].size();
 
     Eigen::VectorXd x = source_coords[source_ind];
     Eigen::VectorXd y = target_coords[target_ind];
@@ -92,7 +92,7 @@ std::vector<std::pair<Eigen::VectorXd, double>>
     double          vol_x   = vol[source_ind];
     Eigen::VectorXd mu_x    = mu [source_ind];
 
-    int num_neighbors2 = std::min(num_neighbors, dirac_kdtree.get_num_pts());
+    unsigned int num_neighbors2 = std::min(num_neighbors, dirac_kdtree.get_num_pts());
 
     Eigen::VectorXi nearest_diracs = dirac_kdtree.query( x, num_neighbors2 ).first;
 
@@ -126,14 +126,14 @@ std::vector<std::pair<Eigen::VectorXd, double>>
             double kernel_value_estimate_from_xj = 0.0;
             if ( (dp.transpose() * (inv_Sigma_xj * dp )) < (tau * tau) )
             {
-                double psi_at_z = 0.0;
+                double psi_j_at_z = 0.0;
                 for ( int ii=0; ii<dT+1; ++ii )
                 {
-                    psi_at_z += z_affine_coords(ii) * eta_batches[b](target_mesh.cells(ii, z_simplex_ind));
+                    psi_j_at_z += z_affine_coords(ii) * eta_batches[b](target_mesh.cells(ii, z_simplex_ind));
                 }
-                psi_at_z /= weight_xj;
+                psi_j_at_z /= weight_xj;
 
-                kernel_value_estimate_from_xj = (vol_x / vol_xj) * psi_at_z;
+                kernel_value_estimate_from_xj = (vol_x / vol_xj) * psi_j_at_z;
             }
             points_and_values.push_back(std::make_pair(xj - x, kernel_value_estimate_from_xj));
         }

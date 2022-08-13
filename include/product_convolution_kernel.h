@@ -417,7 +417,7 @@ struct LPSFKernel
         eta_batches.push_back(next_eta);
     }
 
-    double kernel_entry_LMDI( int target_ind, int source_ind ) const
+    double kernel_entry_LMDI( unsigned long int target_ind, unsigned long int source_ind ) const
     {
         std::vector<std::pair<Eigen::VectorXd, double>> points_and_values
             = INTERP::LMDI_points_and_values(target_ind, source_ind, 
@@ -432,18 +432,18 @@ struct LPSFKernel
         {
             Eigen::MatrixXd P(dS, np);
             Eigen::VectorXd F(np);
-                for ( int jj=0; jj<np; ++jj )
-                {
-                    P.col(jj) = points_and_values[jj].first;
-                    F(jj)     = points_and_values[jj].second;
-                }
-                entry = INTERP::TPS_interpolate( F, P, Eigen::MatrixXd::Zero(dS,1) );
+            for ( int jj=0; jj<np; ++jj )
+            {
+                P.col(jj) = points_and_values[jj].first;
+                F(jj)     = points_and_values[jj].second;
+            }
+            entry = INTERP::TPS_interpolate( F, P, Eigen::MatrixXd::Zero(dS,1) );
         }
         return entry;
     }
 
-    Eigen::MatrixXd kernel_block_LMDI( const std::vector<int> & target_inds, 
-                                       const std::vector<int> & source_inds ) const
+    Eigen::MatrixXd kernel_block_LMDI( const std::vector<unsigned long int> & target_inds, 
+                                       const std::vector<unsigned long int> & source_inds ) const
     {
         int nrow = target_inds.size();
         int ncol = source_inds.size();
@@ -452,7 +452,7 @@ struct LPSFKernel
         {
             for ( int jj=0; jj<ncol; ++jj )
             {
-                block(ii,jj) = kernel_entry_LMDI( ii, jj );
+                block(ii,jj) = kernel_entry_LMDI( target_inds[ii], source_inds[jj] );
             }
         }
         return block;
@@ -545,7 +545,7 @@ LPSFKernel create_LPSFKernel(
                        Sigma_is_good, inv_Sigma, sqrt_Sigma, inv_sqrt_Sigma, det_sqrt_Sigma,
                        ellipsoid_aabb, min_vol_rtol,
                        eta_batches, dirac_ind_batches, dirac_squared_distances, 
-                       dirac_inds, dirac_weights, dirac2batch, dirac_kdtree };
+                       dirac_inds, dirac_weights, dirac2batch, dirac_kdtree, num_neighbors };
 
     for ( int ii=0; ii<num_initial_batches; ++ii )
     {
