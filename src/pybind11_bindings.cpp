@@ -20,6 +20,7 @@
 #include "ellipsoid.h"
 #include "interpolation.h"
 #include "impulse_response.h"
+#include "product_convolution_kernel.h"
 
 namespace py = pybind11;
 
@@ -33,6 +34,7 @@ using namespace BRENT;
 using namespace ELLIPSOID;
 using namespace INTERP;
 using namespace IMPULSE;
+using namespace PCK;
 
 
 PYBIND11_MODULE(localpsfcpp, m) {
@@ -71,6 +73,45 @@ PYBIND11_MODULE(localpsfcpp, m) {
 
     m.def("TPS_interpolate", &TPS_interpolate);
     m.def("LMDI_points_and_values", &LMDI_points_and_values);
+
+    py::class_<LPSFKernel>(m, "LPSFKernel")
+        .def("add_batch",         &LPSFKernel::add_batch)
+        .def("kernel_entry_LMDI", &LPSFKernel::kernel_entry_LMDI)
+        .def("kernel_block_LMDI", &LPSFKernel::kernel_block_LMDI)
+        .def_readonly("dS", &LPSFKernel::dS)
+        .def_readonly("dT", &LPSFKernel::dT)
+        .def_readonly("NS", &LPSFKernel::NS)
+        .def_readonly("NT", &LPSFKernel::NT)
+        .def_readonly("source_vertices", &LPSFKernel::source_vertices)
+        .def_readonly("target_vertices", &LPSFKernel::target_vertices)
+        .def_readonly("target_mesh", &LPSFKernel::target_mesh)
+        .def_readonly("apply_A",     &LPSFKernel::apply_A)
+        .def_readonly("apply_AT",    &LPSFKernel::apply_AT)
+        .def_readonly("apply_M_in",  &LPSFKernel::apply_M_in)
+        .def_readonly("apply_M_out", &LPSFKernel::apply_M_out)
+        .def_readonly("solve_M_in",  &LPSFKernel::solve_M_in)
+        .def_readonly("solve_M_out", &LPSFKernel::solve_M_out)
+        .def_readonly("vol",   &LPSFKernel::vol)
+        .def_readonly("mu",    &LPSFKernel::mu)
+        .def_readonly("Sigma", &LPSFKernel::Sigma)
+        .def_readonly("tau",   &LPSFKernel::tau)
+        .def_readonly("Sigma_is_good",  &LPSFKernel::Sigma_is_good)
+        .def_readonly("inv_Sigma",      &LPSFKernel::inv_Sigma)
+        .def_readonly("sqrt_Sigma",     &LPSFKernel::sqrt_Sigma)
+        .def_readonly("inv_sqrt_Sigma", &LPSFKernel::inv_sqrt_Sigma)
+        .def_readonly("det_sqrt_Sigma", &LPSFKernel::det_sqrt_Sigma)
+        .def_readonly("ellipsoid_aabb", &LPSFKernel::ellipsoid_aabb)
+        .def_readonly("min_vol_rtol",   &LPSFKernel::min_vol_rtol)
+        .def_readwrite("eta_batches",             &LPSFKernel::eta_batches)
+        .def_readwrite("dirac_ind_batches",       &LPSFKernel::dirac_ind_batches)
+        .def_readwrite("dirac_squared_distances", &LPSFKernel::dirac_squared_distances)
+        .def_readwrite("dirac_inds",              &LPSFKernel::dirac_inds)
+        .def_readwrite("dirac_weights",           &LPSFKernel::dirac_weights)
+        .def_readwrite("dirac2batch",             &LPSFKernel::dirac2batch)
+        .def_readwrite("dirac_kdtree",            &LPSFKernel::dirac_kdtree)
+        .def_readwrite("num_neighbors", &LPSFKernel::num_neighbors);
+
+    m.def("create_LPSFKernel", &create_LPSFKernel);
 
 }
 

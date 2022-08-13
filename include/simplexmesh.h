@@ -3,6 +3,8 @@
 #include <iostream>
 #include <list>
 #include <stdexcept>
+#include <map>
+#include <set>
 
 #include <math.h>
 #include <Eigen/Dense>
@@ -184,7 +186,7 @@ private:
             // 4. Discard "bad" projections that to not land in their subface.
             // 5. Return closest "good" projection.
             double dsq_best = (point - query).squaredNorm();
-            for ( int ee=0; ee<entities.size(); ++ee )
+            for ( long unsigned int ee=0; ee<entities.size(); ++ee )
             {
                 const Simplex & E = subface_simplices[entities[ee]];
                 Eigen::VectorXd projected_affine_coords = E.A * query + E.b;
@@ -393,7 +395,7 @@ public:
         std::map<std::vector<int>, std::vector<int>> subface2face_map;
         for ( int bb=0; bb<num_faces; ++bb )
         {
-            for ( int ii=0; ii<pset.size(); ++ii )
+            for ( long unsigned int ii=0; ii<pset.size(); ++ii )
             {
                 std::vector<int> vertex_subset = pset[ii];
                 if ( !vertex_subset.empty() )
@@ -437,7 +439,7 @@ public:
             subfaces.push_back(SF);
 
             std::vector<int> faces_containing_this_subface = it->second;
-            for ( int bb=0; bb<faces_containing_this_subface.size(); ++bb )
+            for ( long unsigned int bb=0; bb<faces_containing_this_subface.size(); ++bb )
             {
                 int face_ind = faces_containing_this_subface[bb];
                 face2subface_vector[face_ind].push_back(subface_number);
@@ -450,7 +452,7 @@ public:
         {
             std::vector<int> entities_for_this_face_vector = face2subface_vector[bb];
             Eigen::VectorXi entities_for_this_face(entities_for_this_face_vector.size());
-            for ( int jj=0; jj<entities_for_this_face_vector.size(); ++jj )
+            for ( long unsigned int jj=0; jj<entities_for_this_face_vector.size(); ++jj )
             {
                 entities_for_this_face(jj) = entities_for_this_face_vector[jj];
             }

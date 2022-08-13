@@ -68,10 +68,10 @@ double TPS_interpolate( const Eigen::VectorXd & function_at_rbf_points,
 
 // Local local mean displacement invariance points and values
 std::vector<std::pair<Eigen::VectorXd, double>> 
-    LMDI_points_and_values(int                                      target_ind,
-                           int                                      source_ind,
-                           const Eigen::MatrixXd                  & source_coords, // shape=(dS, NS) 
-                           const Eigen::MatrixXd                  & target_coords, // shape=(dT, NT)
+    LMDI_points_and_values(unsigned long int                        target_ind,
+                           unsigned long int                        source_ind,
+                           const std::vector<Eigen::VectorXd>     & source_coords, // size=NS, elm_size=dS
+                           const std::vector<Eigen::VectorXd>     & target_coords, // size=NT, elm_size=dT
                            const SMESH::SimplexMesh               & target_mesh,
                            const std::vector<double>              & vol,           // size=NS
                            const std::vector<Eigen::VectorXd>     & mu,            // size=NS, elm_size=dT
@@ -82,13 +82,12 @@ std::vector<std::pair<Eigen::VectorXd, double>>
                            const std::vector<double>              & dirac_weights, // size=num_diracs
                            const std::vector<int>                 & dirac2batch,   // size=num_diracs
                            const KDT::KDTree                      & dirac_kdtree,
-                           int                                      num_neighbors)
+                           unsigned long int                        num_neighbors)
 {
-    int dS             = source_coords.rows();
-    int dT             = target_coords.rows();
+    int dT             = target_coords[0].rows();
 
-    Eigen::VectorXd x = source_coords.col(source_ind);
-    Eigen::VectorXd y = target_coords.col(target_ind);
+    Eigen::VectorXd x = source_coords[source_ind];
+    Eigen::VectorXd y = target_coords[target_ind];
     
     double          vol_x   = vol[source_ind];
     Eigen::VectorXd mu_x    = mu [source_ind];
@@ -111,7 +110,7 @@ std::vector<std::pair<Eigen::VectorXd, double>>
         int b = dirac2batch[dd];
 
         double          weight_xj    = dirac_weights[dd];
-        Eigen::VectorXd xj           = source_coords.col(jj);
+        Eigen::VectorXd xj           = source_coords[jj];
         double          vol_xj       = vol[jj];
         Eigen::VectorXd mu_xj        = mu[jj];
         Eigen::MatrixXd inv_Sigma_xj = inv_Sigma[jj];

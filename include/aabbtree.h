@@ -206,7 +206,7 @@ public:
         }
 
         Eigen::VectorXi collision_leafs_external_indexing(collision_leafs.size());
-        for ( int ii=0; ii<collision_leafs.size(); ++ii )
+        for ( long unsigned int ii=0; ii<collision_leafs.size(); ++ii )
         {
             collision_leafs_external_indexing(ii) = i2e(collision_leafs[ii]);
         }
@@ -243,7 +243,7 @@ public:
         }
 
         Eigen::VectorXi collision_leafs_external_indexing(collision_leafs.size());
-        for ( int ii=0; ii<collision_leafs.size(); ++ii )
+        for ( long unsigned int ii=0; ii<collision_leafs.size(); ++ii )
         {
             collision_leafs_external_indexing(ii) = i2e(collision_leafs[ii]);
         }
@@ -286,7 +286,7 @@ public:
         }
 
         Eigen::VectorXi collision_leafs_external_indexing(collision_leafs.size());
-        for ( int ii=0; ii<collision_leafs.size(); ++ii )
+        for ( long unsigned int ii=0; ii<collision_leafs.size(); ++ii )
         {
             collision_leafs_external_indexing(ii) = i2e(collision_leafs[ii]);
         }

@@ -1,8 +1,5 @@
 default: all
 
-#### DOES NOT WORK YET. DO NOT USE ####
-
-
 ##################    VVVV    Change these    VVVV    ##################
 
 EIGEN_INCLUDE := /home/nick/anaconda3/envs/fenics3/include/eigen3 # https://eigen.tuxfamily.org/index.php?title=Main_Page
@@ -38,7 +35,9 @@ $(PYTHON_DIR)/$(BINDINGS_TARGET): \
  $(INCLUDE_DIR)/simplexmesh.h \
  $(INCLUDE_DIR)/brent_minimize.h \
  $(INCLUDE_DIR)/ellipsoid.h \
- $(INCLUDE_DIR)/impulse_response.h
+ $(INCLUDE_DIR)/impulse_response.h \
+ $(INCLUDE_DIR)/interpolation.h \
+ $(INCLUDE_DIR)/product_convolution_kernel.h
 	@echo 'Building target: $@'
 	g++ -o "$@" "$<" $(CXXFLAGS) $(SHAREDFLAGS) $(PYFLAGS) -I$(INCLUDE_DIR) -I$(EIGEN_INCLUDE)
 	@echo 'Finished building target: $@'

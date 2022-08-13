@@ -102,7 +102,7 @@ Eigen::VectorXd compute_impulse_response_batch(const std::function<Eigen::Vector
     }
 
     Eigen::VectorXd dirac_comb = Eigen::VectorXd::Zero(N_in);
-    for ( int ii=0; ii<dirac_inds.size(); ++ii )
+    for ( long unsigned int ii=0; ii<dirac_inds.size(); ++ii )
     {
         dirac_comb(dirac_inds[ii]) = dirac_weights[ii];
     }
