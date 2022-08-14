@@ -74,6 +74,18 @@ PYBIND11_MODULE(localpsfcpp, m) {
     m.def("TPS_interpolate", &TPS_interpolate);
     m.def("LMDI_points_and_values", &LMDI_points_and_values);
 
+    py::enum_<ShiftMethod>(m, "ShiftMethod")
+        .value("LOW_RANK",                           ShiftMethod::LOW_RANK)
+        .value("LOCAL_TRANSLATION_INVARIANCE",       ShiftMethod::LOCAL_TRANSLATION_INVARIANCE)
+        .value("LOCAL_MEAN_DISPLACEMENT_INVARIANCE", ShiftMethod::LOCAL_MEAN_DISPLACEMENT_INVARIANCE)
+        .value("ELLIPSOID_MAPPING",                  ShiftMethod::ELLIPSOID_MAPPING);
+
+    py::enum_<ScalingMethod>(m, "ScalingMethod")
+        .value("NONE",    ScalingMethod::NONE)
+        .value("VOL",     ScalingMethod::VOL)
+        .value("DET",     ScalingMethod::DET)
+        .value("DETVOL", ScalingMethod::DETVOL);
+
     py::class_<LPSFKernel>(m, "LPSFKernel")
         .def("add_batch", &LPSFKernel::add_batch)
         .def("entry",     &LPSFKernel::entry)

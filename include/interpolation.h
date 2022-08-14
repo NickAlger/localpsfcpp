@@ -88,7 +88,7 @@ inline std::vector<int> find_nearest_diracs( const Eigen::VectorXd & x,
     Eigen::VectorXi nearest_diracs_VectorXi = dirac_kdtree.query( x, num_neighbors2 ).first;
 
     std::vector<int> nearest_diracs(nearest_diracs_VectorXi.size());
-    for ( int ii=0; ii<nearest_diracs.size(); ++ii )
+    for ( unsigned int ii=0; ii<nearest_diracs.size(); ++ii )
     {
         nearest_diracs[ii] = nearest_diracs_VectorXi(ii);
     }
@@ -154,6 +154,17 @@ std::vector<std::pair<Eigen::VectorXd, double>>
     return points_and_values;
 }
 
+enum class ShiftMethod { LOW_RANK,                           // z = y, 
+                         LOCAL_TRANSLATION_INVARIANCE,       // z = x_j  + y - x
+                         LOCAL_MEAN_DISPLACEMENT_INVARIANCE, // z = mu_j + y - mu_x
+                         ELLIPSOID_MAPPING                   // z = mu_j + sqrt_Sigma_xj * inv_sqrt_Sigma_x * (y - mu_x)
+                       };
+
+enum class ScalingMethod { NONE,  // w = 1.0
+                           VOL,   // w = vol_x / vol_xj
+                           DET,   // w = det_sqrt_Sigma_xj / det_sqrt_Sigma_x
+                           DETVOL // w = (vol_x / vol_xj) * (det_sqrt_Sigma_xj / det_sqrt_Sigma_x)
+                         };
 
 // Local local translation invariance points and values
 std::vector<std::pair<Eigen::VectorXd, double>> 
@@ -175,8 +186,8 @@ std::vector<std::pair<Eigen::VectorXd, double>>
                                     const std::vector<int>                 & dirac2batch,    // size=num_diracs
                                     const KDT::KDTree                      & dirac_kdtree,
                                     unsigned long int                        num_neighbors,
-                                    unsigned int                             shift_type,  // 1=CUR, 2=LTI, 3=LMDI, 0=ELL
-                                    unsigned int                             weight_type) // 1=NONE, 2=VOL, 0=ELL
+                                    ShiftMethod                              shift_method,
+                                    ScalingMethod                            scaling_method)
 {
     unsigned int dT = target_coords[0].size();
 
@@ -187,6 +198,13 @@ std::vector<std::pair<Eigen::VectorXd, double>>
     Eigen::VectorXd mu_x             = mu            [source_ind];
     Eigen::MatrixXd inv_sqrt_Sigma_x = inv_sqrt_Sigma[source_ind];
     double          det_sqrt_Sigma_x = det_sqrt_Sigma[source_ind];
+
+    if ( (scaling_method == ScalingMethod::DET || scaling_method == ScalingMethod::DETVOL) && det_sqrt_Sigma_x == 0.0 )
+    {
+        std::vector<std::pair<Eigen::VectorXd, double>> points_and_values;
+        points_and_values.push_back(std::make_pair(x - x, 0.0));
+        return points_and_values;
+    }
 
     std::vector<int> nearest_diracs = find_nearest_diracs(x, dirac_kdtree, num_neighbors );
 
@@ -207,19 +225,12 @@ std::vector<std::pair<Eigen::VectorXd, double>>
         double          det_sqrt_Sigma_xj = det_sqrt_Sigma[jj];
 
         Eigen::VectorXd z(dT);
-        switch( shift_type ) 
+        switch( shift_method ) 
         {
-            case 1:
-                z = y;
-                break;
-            case 2:
-                z = xj + y - x;
-                break;
-            case 3:
-                z = mu_xj + y - mu_x;
-                break;
-            default:
-                z = mu_xj + sqrt_Sigma_xj * (inv_sqrt_Sigma_x * (y - mu_x));
+            case ShiftMethod::LOW_RANK:                           z = y;                                                       break;
+            case ShiftMethod::LOCAL_TRANSLATION_INVARIANCE:       z = xj + y - x;                                              break;
+            case ShiftMethod::LOCAL_MEAN_DISPLACEMENT_INVARIANCE: z = mu_xj + y - mu_x;                                        break;
+            case ShiftMethod::ELLIPSOID_MAPPING:                  z = mu_xj + sqrt_Sigma_xj * (inv_sqrt_Sigma_x * (y - mu_x)); break;
         }
 
         std::pair<Eigen::VectorXi, Eigen::MatrixXd> IC = target_mesh.first_point_collision( z );
@@ -229,21 +240,18 @@ std::vector<std::pair<Eigen::VectorXd, double>>
         {
             double kernel_value_estimate_from_xj = 0.0;
             Eigen::VectorXd dp = z - mu_xj;
-            if ( (dp.transpose() * (inv_Sigma_xj * dp )) < (tau * tau) )
+            bool z_is_in_Ej = ( (dp.transpose() * (inv_Sigma_xj * dp )) < (tau * tau) );
+            if ( z_is_in_Ej )
             {
                 double psi_j_at_z = eval_simplexmesh(eta_batches[b], z_affine_coords, z_simplex_ind, target_mesh.cells) / dirac_weight_xj;
 
-                double w;
-                switch( weight_type ) 
+                double w = 0.0;
+                switch( scaling_method ) 
                 {
-                    case 1:
-                        w = 1.0;
-                        break;
-                    case 2:
-                        w = vol_x / vol_xj;
-                        break;
-                    default:
-                        w = ( vol_x / det_sqrt_Sigma_x ) / ( vol_xj / det_sqrt_Sigma_xj );
+                    case ScalingMethod::NONE:   w = 1.0;                                                           break;
+                    case ScalingMethod::VOL:    w = vol_x / vol_xj;                                                break;
+                    case ScalingMethod::DET:    w = det_sqrt_Sigma_xj / det_sqrt_Sigma_x;                          break;
+                    case ScalingMethod::DETVOL: w = ( vol_x / vol_xj ) * ( det_sqrt_Sigma_xj / det_sqrt_Sigma_x ); break;
                 }
 
                 kernel_value_estimate_from_xj = w * psi_j_at_z;
