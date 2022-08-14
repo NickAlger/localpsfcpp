@@ -75,9 +75,9 @@ PYBIND11_MODULE(localpsfcpp, m) {
     m.def("LMDI_points_and_values", &LMDI_points_and_values);
 
     py::class_<LPSFKernel>(m, "LPSFKernel")
-        .def("add_batch",         &LPSFKernel::add_batch)
-        .def("entry_LMDI", &LPSFKernel::entry_LMDI)
-        .def("block_LMDI", &LPSFKernel::block_LMDI)
+        .def("add_batch", &LPSFKernel::add_batch)
+        .def("entry",     &LPSFKernel::entry)
+        .def("block",     &LPSFKernel::block)
         .def_readonly("dS", &LPSFKernel::dS)
         .def_readonly("dT", &LPSFKernel::dT)
         .def_readonly("NS", &LPSFKernel::NS)

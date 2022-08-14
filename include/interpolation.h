@@ -66,6 +66,35 @@ double TPS_interpolate( const Eigen::VectorXd & function_at_rbf_points,
     return function_at_eval_point;
 }
 
+inline double eval_simplexmesh( const Eigen::VectorXd & f,
+                                const Eigen::VectorXd & z_affine_coords, 
+                                unsigned long int       z_simplex_ind,
+                                const Eigen::MatrixXi & mesh_cells )
+{
+    double f_of_z = 0.0;
+    for ( int ii=0; ii<z_affine_coords.size(); ++ii )
+    {
+        f_of_z += z_affine_coords(ii) * f(mesh_cells(ii, z_simplex_ind));
+    }
+    return f_of_z;
+}
+
+inline std::vector<int> find_nearest_diracs( const Eigen::VectorXd & x,
+                                             const KDT::KDTree     & dirac_kdtree, 
+                                             unsigned long int       num_neighbors )
+{
+    unsigned int num_neighbors2 = std::min(num_neighbors, dirac_kdtree.get_num_pts());
+
+    Eigen::VectorXi nearest_diracs_VectorXi = dirac_kdtree.query( x, num_neighbors2 ).first;
+
+    std::vector<int> nearest_diracs(nearest_diracs_VectorXi.size());
+    for ( int ii=0; ii<nearest_diracs.size(); ++ii )
+    {
+        nearest_diracs[ii] = nearest_diracs_VectorXi(ii);
+    }
+    return nearest_diracs;
+}
+
 // Local local mean displacement invariance points and values
 std::vector<std::pair<Eigen::VectorXd, double>> 
     LMDI_points_and_values(unsigned long int                        target_ind,
@@ -84,27 +113,17 @@ std::vector<std::pair<Eigen::VectorXd, double>>
                            const KDT::KDTree                      & dirac_kdtree,
                            unsigned long int                        num_neighbors)
 {
-    int dT             = target_coords[0].size();
-
     Eigen::VectorXd x = source_coords[source_ind];
     Eigen::VectorXd y = target_coords[target_ind];
     
     double          vol_x   = vol[source_ind];
     Eigen::VectorXd mu_x    = mu [source_ind];
 
-    unsigned int num_neighbors2 = std::min(num_neighbors, dirac_kdtree.get_num_pts());
-
-    Eigen::VectorXi nearest_diracs = dirac_kdtree.query( x, num_neighbors2 ).first;
-
-    std::vector<int> nearest_diracs_list(nearest_diracs.size());
-    for ( int ii=0; ii<nearest_diracs.size(); ++ii )
-    {
-        nearest_diracs_list[ii] = nearest_diracs(ii);
-    }
+    std::vector<int> nearest_diracs = find_nearest_diracs(x, dirac_kdtree, num_neighbors );
 
     std::vector<std::pair<Eigen::VectorXd, double>> points_and_values;
     points_and_values.reserve(nearest_diracs.size());
-    for ( int dd : nearest_diracs_list )
+    for ( int dd : nearest_diracs )
     {
         int jj = dirac_inds[dd];
         int b = dirac2batch[dd];
@@ -126,13 +145,7 @@ std::vector<std::pair<Eigen::VectorXd, double>>
             double kernel_value_estimate_from_xj = 0.0;
             if ( (dp.transpose() * (inv_Sigma_xj * dp )) < (tau * tau) )
             {
-                double psi_j_at_z = 0.0;
-                for ( int ii=0; ii<dT+1; ++ii )
-                {
-                    psi_j_at_z += z_affine_coords(ii) * eta_batches[b](target_mesh.cells(ii, z_simplex_ind));
-                }
-                psi_j_at_z /= weight_xj;
-
+                double psi_j_at_z = eval_simplexmesh(eta_batches[b], z_affine_coords, z_simplex_ind, target_mesh.cells) / weight_xj;
                 kernel_value_estimate_from_xj = (vol_x / vol_xj) * psi_j_at_z;
             }
             points_and_values.push_back(std::make_pair(xj - x, kernel_value_estimate_from_xj));
@@ -140,5 +153,106 @@ std::vector<std::pair<Eigen::VectorXd, double>>
     }
     return points_and_values;
 }
+
+
+// Local local translation invariance points and values
+std::vector<std::pair<Eigen::VectorXd, double>> 
+    interpolation_points_and_values(unsigned long int                        target_ind,
+                                    unsigned long int                        source_ind,
+                                    const std::vector<Eigen::VectorXd>     & source_coords,  // size=NS, elm_size=dS
+                                    const std::vector<Eigen::VectorXd>     & target_coords,  // size=NT, elm_size=dT
+                                    const SMESH::SimplexMesh               & target_mesh,
+                                    const std::vector<double>              & vol,            // size=NS
+                                    const std::vector<Eigen::VectorXd>     & mu,             // size=NS, elm_size=dT
+                                    const std::vector<Eigen::MatrixXd>     & inv_Sigma,      // size=NS, elm_shape=(dT,dT)
+                                    const std::vector<Eigen::MatrixXd>     & sqrt_Sigma,     // size=NS, elm_shape=(dT,dT)
+                                    const std::vector<Eigen::MatrixXd>     & inv_sqrt_Sigma, // size=NS, elm_shape=(dT,dT)
+                                    const std::vector<double>              & det_sqrt_Sigma, // size=NS
+                                    double                                   tau,
+                                    const std::vector<Eigen::VectorXd>     & eta_batches,    // size=num_batches, elm_size=NT
+                                    const std::vector<int>                 & dirac_inds,     // size=num_diracs
+                                    const std::vector<double>              & dirac_weights,  // size=num_diracs
+                                    const std::vector<int>                 & dirac2batch,    // size=num_diracs
+                                    const KDT::KDTree                      & dirac_kdtree,
+                                    unsigned long int                        num_neighbors,
+                                    unsigned int                             shift_type,  // 1=CUR, 2=LTI, 3=LMDI, 0=ELL
+                                    unsigned int                             weight_type) // 1=NONE, 2=VOL, 0=ELL
+{
+    unsigned int dT = target_coords[0].size();
+
+    Eigen::VectorXd x = source_coords[source_ind];
+    Eigen::VectorXd y = target_coords[target_ind];
+    
+    double          vol_x            = vol           [source_ind];
+    Eigen::VectorXd mu_x             = mu            [source_ind];
+    Eigen::MatrixXd inv_sqrt_Sigma_x = inv_sqrt_Sigma[source_ind];
+    double          det_sqrt_Sigma_x = det_sqrt_Sigma[source_ind];
+
+    std::vector<int> nearest_diracs = find_nearest_diracs(x, dirac_kdtree, num_neighbors );
+
+    std::vector<std::pair<Eigen::VectorXd, double>> points_and_values;
+    points_and_values.reserve(nearest_diracs.size());
+    for ( int dd : nearest_diracs )
+    {
+        int jj = dirac_inds[dd];
+        int b = dirac2batch[dd];
+
+        double dirac_weight_xj = dirac_weights[dd];
+
+        Eigen::VectorXd xj                = source_coords [jj];
+        double          vol_xj            = vol           [jj];
+        Eigen::VectorXd mu_xj             = mu            [jj];
+        Eigen::MatrixXd sqrt_Sigma_xj     = sqrt_Sigma    [jj];
+        Eigen::MatrixXd inv_Sigma_xj      = inv_Sigma     [jj];
+        double          det_sqrt_Sigma_xj = det_sqrt_Sigma[jj];
+
+        Eigen::VectorXd z(dT);
+        switch( shift_type ) 
+        {
+            case 1:
+                z = y;
+                break;
+            case 2:
+                z = xj + y - x;
+                break;
+            case 3:
+                z = mu_xj + y - mu_x;
+                break;
+            default:
+                z = mu_xj + sqrt_Sigma_xj * (inv_sqrt_Sigma_x * (y - mu_x));
+        }
+
+        std::pair<Eigen::VectorXi, Eigen::MatrixXd> IC = target_mesh.first_point_collision( z );
+        int             z_simplex_ind   = IC.first(0);
+        Eigen::VectorXd z_affine_coords = IC.second.col(0);
+        if ( z_simplex_ind >= 0 ) // point is good (z is in the mesh)
+        {
+            double kernel_value_estimate_from_xj = 0.0;
+            Eigen::VectorXd dp = z - mu_xj;
+            if ( (dp.transpose() * (inv_Sigma_xj * dp )) < (tau * tau) )
+            {
+                double psi_j_at_z = eval_simplexmesh(eta_batches[b], z_affine_coords, z_simplex_ind, target_mesh.cells) / dirac_weight_xj;
+
+                double w;
+                switch( weight_type ) 
+                {
+                    case 1:
+                        w = 1.0;
+                        break;
+                    case 2:
+                        w = vol_x / vol_xj;
+                        break;
+                    default:
+                        w = ( vol_x / det_sqrt_Sigma_x ) / ( vol_xj / det_sqrt_Sigma_xj );
+                }
+
+                kernel_value_estimate_from_xj = w * psi_j_at_z;
+            }
+            points_and_values.push_back(std::make_pair(xj - x, kernel_value_estimate_from_xj));
+        }
+    }
+    return points_and_values;
+}
+
 
 }

@@ -419,14 +419,20 @@ struct LPSFKernel
         eta_batches.push_back(next_eta);
     }
 
-    double entry_LMDI( unsigned long int target_ind, unsigned long int source_ind ) const
+    double entry( unsigned long int target_ind, 
+                  unsigned long int source_ind, 
+                  unsigned int shift_type, // 1=CUR, 2=LTI, 3=LMDI, 0=ELL
+                  unsigned int weight_type // 1=NONE, 2=VOL, 0=ELL
+                  ) const
     {
         std::vector<std::pair<Eigen::VectorXd, double>> points_and_values
-            = INTERP::LMDI_points_and_values(target_ind, source_ind, 
-                                             source_vertices, target_vertices, target_mesh,
-                                             vol, mu, inv_Sigma, tau, 
-                                             eta_batches, dirac_inds, dirac_weights, dirac2batch, dirac_kdtree, 
-                                             num_neighbors);
+            = INTERP::interpolation_points_and_values(target_ind, source_ind, 
+                                                      source_vertices, target_vertices, target_mesh,
+                                                      vol, mu, inv_Sigma, sqrt_Sigma, 
+                                                      inv_sqrt_Sigma, det_sqrt_Sigma, tau,
+                                                      eta_batches, dirac_inds, dirac_weights, dirac2batch,
+                                                      dirac_kdtree, num_neighbors,
+                                                      shift_type, weight_type);
         
         double entry = 0.0;
         int np = points_and_values.size();
@@ -444,8 +450,11 @@ struct LPSFKernel
         return entry;
     }
 
-    Eigen::MatrixXd block_LMDI( const std::vector<unsigned long int> & target_inds, 
-                                       const std::vector<unsigned long int> & source_inds ) const
+    Eigen::MatrixXd block( const std::vector<unsigned long int> & target_inds, 
+                           const std::vector<unsigned long int> & source_inds,
+                           unsigned int shift_type, // 1=CUR, 2=LTI, 3=LMDI, 0=ELL
+                           unsigned int weight_type // 1=NONE, 2=VOL, 0=ELL
+                           ) const
     {
         int nrow = target_inds.size();
         int ncol = source_inds.size();
@@ -454,7 +463,7 @@ struct LPSFKernel
         {
             for ( int jj=0; jj<ncol; ++jj )
             {
-                block(ii,jj) = entry_LMDI( target_inds[ii], source_inds[jj] );
+                block(ii,jj) = entry( target_inds[ii], source_inds[jj], shift_type, weight_type );
             }
         }
         return block;
