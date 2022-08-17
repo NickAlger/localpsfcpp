@@ -1,0 +1,9 @@
+/.vscode/
+/localpsfcpp/localpsfcpp.cpython-39-x86_64-linux-gnu.so
+/localpsfcpp.egg-info/
+/notebook/.ipynb_checkpoints/
+/notebook/jitfailure-dolfin_expression_13c1b5599bd8542a0d9a1ba89249b0a0/
+/notebook/jitfailure-dolfin_expression_274716df753cf87577170d851be33803/
+/notebook/block_cluster_tree.eps
+/notebook/cluster_tree.eps
+/notebook/kernel_hmatrix.eps
