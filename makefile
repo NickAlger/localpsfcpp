@@ -2,10 +2,14 @@ default: all
 
 ##################    VVVV    Change these    VVVV    ##################
 
-EIGEN_INCLUDE := /home/nick/anaconda3/envs/fenics3/include/eigen3 # https://eigen.tuxfamily.org/index.php?title=Main_Page
-HLIBPRO_DIR := /home/nick/hlibpro-2.9 # https://www.hlibpro.com/
+EIGEN_INCLUDE := /home/nick/anaconda3/envs/fenics3/include/eigen3# https://eigen.tuxfamily.org/index.php?title=Main_Page
+HLIBPRO_DIR := /home/nick/hlibpro-2.9# https://www.hlibpro.com/
 
 ########################################################################
+
+HLIBPRO_LIB := $(HLIBPRO_DIR)/lib
+HLIBPRO_INCLUDE := $(HLIBPRO_DIR)/include
+HLIBPRO_FLAGS := $(shell $(HLIBPRO_DIR)/bin/hlib-config --cflags --lflags)
 
 PYFLAGS  = $(shell python3 -m pybind11 --includes)
 PYSUFFIX = $(shell python3-config --extension-suffix)
@@ -17,10 +21,17 @@ BUILD_DIR  := ./bin
 LIB_DIR  := ./lib
 PYTHON_DIR := ./localpsfcpp
 
+LDFLAGS  = -shared -L$(HLIBPRO_LIB)
 CXXFLAGS := -std=c++17 -pthread -lpthread -O3 -Wall
 SHAREDFLAGS := -shared -fPIC
 
-ALL_COMPILE_STUFF = $(CXXFLAGS) $(PYFLAGS) -I$(INCLUDE_DIR) -I$(EIGEN_INCLUDE)
+LIBS := -lhpro -Wl,-rpath,$(HLIBPRO_LIB)
+
+# ALL_COMPILE_STUFF = $(CXXFLAGS) $(PYFLAGS) -I$(INCLUDE_DIR) -I$(EIGEN_INCLUDE)
+
+ALL_COMPILE_STUFF = $(CXXFLAGS) $(HLIBPRO_FLAGS) $(PYFLAGS) $(SHAREDFLAGS) \
+					-I$(INCLUDE_DIR) -I $(HLIBPRO_INCLUDE) -I$(EIGEN_INCLUDE) \
+					$(LDFLAGS) $(LIBS)
 
 BINDINGS_TARGET = localpsfcpp$(PYSUFFIX)
 
@@ -37,9 +48,11 @@ $(PYTHON_DIR)/$(BINDINGS_TARGET): \
  $(INCLUDE_DIR)/ellipsoid.h \
  $(INCLUDE_DIR)/impulse_response.h \
  $(INCLUDE_DIR)/interpolation.h \
- $(INCLUDE_DIR)/product_convolution_kernel.h
+ $(INCLUDE_DIR)/product_convolution_kernel.h \
+ $(INCLUDE_DIR)/hmatrix.h
 	@echo 'Building target: $@'
-	g++ -o "$@" "$<" $(CXXFLAGS) $(SHAREDFLAGS) $(PYFLAGS) -I$(INCLUDE_DIR) -I$(EIGEN_INCLUDE)
+#	g++ -o "$@" "$<" $(CXXFLAGS) $(SHAREDFLAGS) $(PYFLAGS) -I$(INCLUDE_DIR) -I$(EIGEN_INCLUDE)
+	g++ -o "$@" "$<" $(ALL_COMPILE_STUFF)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

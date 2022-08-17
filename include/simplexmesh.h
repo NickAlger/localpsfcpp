@@ -119,7 +119,7 @@ private:
 
     AABB::AABBTree cell_aabbtree;
     AABB::AABBTree face_aabbtree;
-    KDT::KDTree   face_kdtree;
+    KDT::KDTree    face_kdtree;
 
     std::vector< Simplex > cell_simplices;
     std::vector< Simplex > subface_simplices;
@@ -231,8 +231,16 @@ public:
     Eigen::MatrixXd    vertices; // shape=(dim,num_vertices)
     Eigen::MatrixXi    cells;    // interior simplices of volumetric dimension. shape=(dim+1,num_cells)
 
+    SimplexMesh () {};
+
     SimplexMesh( const Eigen::Ref<const Eigen::MatrixXd> input_vertices, // shape=(dim,num_vertices)
                  const Eigen::Ref<const Eigen::MatrixXi> input_cells )   // shape=(dim+1,num_cells)
+    {
+        build_mesh( input_vertices, input_cells );
+    }
+
+    void build_mesh( const Eigen::Ref<const Eigen::MatrixXd> input_vertices, // shape=(dim,num_vertices)
+                     const Eigen::Ref<const Eigen::MatrixXi> input_cells )   // shape=(dim+1,num_cells)
     {
         // ------------------------    Input checking and copying    ------------------------
         dim = input_vertices.rows();

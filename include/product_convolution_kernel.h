@@ -211,168 +211,38 @@ namespace PCK {
 // };
 
 
-// class ProductConvolutionKernelRBF : public HLIB::TCoeffFn< real_t >
-// {
-// private:
-//     int dim;
-//     std::shared_ptr<ImpulseResponseBatches> col_batches;
-
-// public:
-//     std::vector<Eigen::VectorXd> row_coords;
-//     std::vector<Eigen::VectorXd> col_coords;
-//     bool                         mean_shift = true;
-//     bool                         vol_preconditioning = true;
-
-//     ProductConvolutionKernelRBF( std::shared_ptr<ImpulseResponseBatches> col_batches,
-//                                          std::vector<Eigen::VectorXd>            col_coords,
-//                                          std::vector<Eigen::VectorXd>            row_coords)
-//         : col_batches(col_batches),
-//           row_coords(row_coords),
-//           col_coords(col_coords)
-//     {
-//         std::cout << "Using ProductConvolutionKernelRBFColsOnly!" << std::endl;
-//         dim = col_batches->dim;
-//     }
-
-//     double eval_integral_kernel(const Eigen::VectorXd & y,
-//                                 const Eigen::VectorXd & x ) const
-//     {
-//         std::vector<std::pair<Eigen::VectorXd, double>> points_and_values;
-//         if ( col_batches->num_pts() > 0 )
-//         {
-//             points_and_values = col_batches->interpolation_points_and_values(y, x, mean_shift, vol_preconditioning); // forward
-//         }
-
-//         int actual_num_pts = points_and_values.size();
-//         double kernel_value = 0.0;
-
-//         int exact_column_index = -1;
-//         for ( int ii=0; ii<actual_num_pts; ++ii )
-//         {
-//             if ( points_and_values[ii].first.norm() < 1e-9 )
-//             {
-//                 exact_column_index = ii;
-//                 kernel_value = points_and_values[ii].second;
-//                 break;
-//             }
-//         }
-
-//         if ( exact_column_index < 0 )
-//         {
-//             if ( actual_num_pts > 0 )
-//             {
-//                 Eigen::MatrixXd P(dim, actual_num_pts);
-//                 Eigen::VectorXd F(actual_num_pts);
-//                 for ( int jj=0; jj<actual_num_pts; ++jj )
-//                 {
-//                     P.col(jj) = points_and_values[jj].first;
-//                     F(jj)     = points_and_values[jj].second;
-//                 }
-//                 kernel_value = INTERP::tps_interpolate( F, P, Eigen::MatrixXd::Zero(dim,1) );
-//             }
-//         }
-
-//         return kernel_value;
-//     }
-
-//     double eval_matrix_entry(const int row_ind,
-//                              const int col_ind ) const
-//     {
-//         return eval_integral_kernel(row_coords[row_ind], col_coords[col_ind]);
-//     }
-
-//     void eval  ( const std::vector< HLIB::idx_t > &  rowidxs,
-//                  const std::vector< HLIB::idx_t > &  colidxs,
-//                  real_t *                            matrix ) const
-//     {
-//         // Check input sizes
-//         bool input_is_good = true;
-//         for ( int rr : rowidxs )
-//         {
-//             if ( rr < 0 )
-//             {
-//                 std::string error_message = "Negative row index. rr=";
-//                 error_message += std::to_string(rr);
-//                 throw std::invalid_argument( error_message );
-//             }
-//             else if ( rr >= row_coords.size() )
-//             {
-//                 std::string error_message = "Row index too big. rr=";
-//                 error_message += std::to_string(rr);
-//                 error_message += ", row_coords.size()=";
-//                 error_message += std::to_string(row_coords.size());
-//                 throw std::invalid_argument( error_message );
-//             }
-//         }
-//         for ( int cc : colidxs )
-//         {
-//             if ( cc < 0 )
-//             {
-//                 std::string error_message = "Negative col index. cc=";
-//                 error_message += std::to_string(cc);
-//                 throw std::invalid_argument( error_message );
-//             }
-//             else if ( cc >= col_coords.size() )
-//             {
-//                 std::string error_message = "Col index too big. cc=";
-//                 error_message += std::to_string(cc);
-//                 error_message += ", col_coords.size()=";
-//                 error_message += std::to_string(col_coords.size());
-//                 throw std::invalid_argument( error_message );
-//             }
-//         }
-
-//         int nrow = rowidxs.size();
-//         int ncol = colidxs.size();
-//         for ( size_t  jj = 0; jj < ncol; ++jj )
-//         {
-//             for ( size_t  ii = 0; ii < nrow; ++ii )
-//             {
-//                 matrix[ jj*nrow + ii ] = eval_matrix_entry(rowidxs[ii], colidxs[jj]);
-//                 matrix[ jj*nrow + ii ] += 1.0e-14; // Code segfaults without this
-//             }
-//         }
-
-//     }
-
-//     using HLIB::TCoeffFn< real_t >::eval;
-
-//     virtual HLIB::matform_t  matrix_format  () const { return HLIB::MATFORM_NONSYM; }
-
-// };
-
-
 struct LPSFKernel
 {
-    const int dS; // geometric dimension of source space (e.g., 1, 2, or 3)
-    const int dT; // geometric dimension of target space (e.g., 1, 2, or 3)
-    const int NS; // number of d.o.f.'s in the source space (e.g., thoudands, millions)
-    const int NT; // number of d.o.f.'s in the target space (e.g., thoudands, millions)
+    int dS; // geometric dimension of source space (e.g., 1, 2, or 3)
+    int dT; // geometric dimension of target space (e.g., 1, 2, or 3)
+    int NS; // number of d.o.f.'s in the source space (e.g., thoudands, millions)
+    int NT; // number of d.o.f.'s in the target space (e.g., thoudands, millions)
 
-    const std::vector<Eigen::VectorXd> source_vertices; // size=NS, elm_size=dS
-    const std::vector<Eigen::VectorXd> target_vertices; // size=NT, elm_size=dT
-    const SMESH::SimplexMesh target_mesh;
+    std::vector<Eigen::VectorXd> source_vertices; // size=NS, elm_size=dS
+    std::vector<Eigen::VectorXd> target_vertices; // size=NT, elm_size=dT
+    SMESH::SimplexMesh target_mesh;
 
-    const std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_A;     // R^NS -> R^NT, x -> A     * x
-    const std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_AT;    // R^NT -> R^NS, x -> A^T   * x
-    const std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_M_in;  // R^NS -> R^NS, x -> M_in  * x
-    const std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_M_out; // R^NT -> R^NT, x -> M_out * x
-    const std::function<Eigen::VectorXd(Eigen::VectorXd)> solve_M_in;  // R^NS -> R^NS, y -> M_in  \ y
-    const std::function<Eigen::VectorXd(Eigen::VectorXd)> solve_M_out; // R^NT -> R^NT, y -> M_out \ y
+    std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_A;     // R^NS -> R^NT, x -> A     * x
+    std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_AT;    // R^NT -> R^NS, x -> A^T   * x
+    std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_M_in;  // R^NS -> R^NS, x -> M_in  * x
+    std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_M_out; // R^NT -> R^NT, x -> M_out * x
+    std::function<Eigen::VectorXd(Eigen::VectorXd)> solve_M_in;  // R^NS -> R^NS, y -> M_in  \ y
+    std::function<Eigen::VectorXd(Eigen::VectorXd)> solve_M_out; // R^NT -> R^NT, y -> M_out \ y
 
-    const std::vector<double>          vol;            // size=NS
-    const std::vector<Eigen::VectorXd> mu;             // size=NS, elm_size=dT
-    const std::vector<Eigen::MatrixXd> Sigma;          // size=NS, elm_shape=(dT,dT)
-    const double                       tau;            // ellipsoid scaling parameter (tau=3 is good)
+    std::vector<double>          vol;              // size=NS
+    std::vector<Eigen::VectorXd> mu;               // size=NS, elm_size=dT
+    std::vector<Eigen::MatrixXd> Sigma_unmodified; // size=NS, elm_shape=(dT,dT)
+    std::vector<Eigen::MatrixXd> Sigma;            // size=NS, elm_shape=(dT,dT)
+    double                       tau;              // ellipsoid scaling parameter (tau=3 is good)
     
-    const std::vector<bool>            Sigma_is_good;  // size=NS
-    const std::vector<Eigen::MatrixXd> inv_Sigma;      // size=NS, elm_shape=(dT,dT)
-    const std::vector<Eigen::MatrixXd> sqrt_Sigma;     // size=NS, elm_shape=(dT,dT)
-    const std::vector<Eigen::MatrixXd> inv_sqrt_Sigma; // size=NS, elm_shape=(dT,dT)
-    const std::vector<double>          det_sqrt_Sigma; // size=NS
+    std::vector<bool>            Sigma_is_good;  // size=NS
+    std::vector<Eigen::MatrixXd> inv_Sigma;      // size=NS, elm_shape=(dT,dT)
+    std::vector<Eigen::MatrixXd> sqrt_Sigma;     // size=NS, elm_shape=(dT,dT)
+    std::vector<Eigen::MatrixXd> inv_sqrt_Sigma; // size=NS, elm_shape=(dT,dT)
+    std::vector<double>          det_sqrt_Sigma; // size=NS
 
-    const AABB::AABBTree ellipsoid_aabb;
-    const double         min_vol_rtol;  // minimum relative volume for picking an ellipsoid
+    AABB::AABBTree ellipsoid_aabb;
+    double         min_vol_rtol;  // minimum relative volume for picking an ellipsoid
 
     std::vector<Eigen::VectorXd>  eta_batches;             // size=num_batches, elm_size=NT
     std::vector<std::vector<int>> dirac_ind_batches;       // size=num_batches
@@ -481,7 +351,7 @@ std::vector<Eigen::VectorXd> unpack_MatrixXd( const Eigen::MatrixXd & V )
     return vv;
 }
 
-LPSFKernel create_LPSFKernel( 
+std::shared_ptr<LPSFKernel> create_LPSFKernel( 
     const std::function<Eigen::VectorXd(Eigen::VectorXd)> & apply_A,     // R^NS -> R^NT, x -> A     * x
     const std::function<Eigen::VectorXd(Eigen::VectorXd)> & apply_AT,    // R^NT -> R^NS, x -> A^T   * x
     const std::function<Eigen::VectorXd(Eigen::VectorXd)> & apply_M_in,  // R^NS -> R^NS, x -> M_in  * x
@@ -496,73 +366,68 @@ LPSFKernel create_LPSFKernel(
     double min_vol_rtol,
     int    num_initial_batches )
 {
-    int dS = source_vertices_mat.rows();
-    int NS = source_vertices_mat.cols();
+    std::shared_ptr<LPSFKernel> kernel = std::make_shared<LPSFKernel>();
 
-    int dT = target_vertices_mat.rows();
-    int NT = target_vertices_mat.cols();
+    kernel->apply_A     = apply_A;
+    kernel->apply_AT    = apply_AT;
+    kernel->apply_M_in  = apply_M_in;
+    kernel->apply_M_out = apply_M_out;
+    kernel->solve_M_in  = solve_M_in;
+    kernel->solve_M_out = solve_M_out;
+    kernel->tau           = tau;
+    kernel->num_neighbors = num_neighbors;
+    kernel->min_vol_rtol  = min_vol_rtol;
 
-    std::vector<Eigen::VectorXd> source_vertices = unpack_MatrixXd(source_vertices_mat); // size=NS, elm_size=dS
-    std::vector<Eigen::VectorXd> target_vertices = unpack_MatrixXd(target_vertices_mat); // size=NT, elm_size=dT
-    SMESH::SimplexMesh target_mesh(target_vertices_mat, target_cells_mat);
+    kernel->dS = source_vertices_mat.rows();
+    kernel->NS = source_vertices_mat.cols();
+
+    kernel->dT = target_vertices_mat.rows();
+    kernel->NT = target_vertices_mat.cols();
+
+    kernel->source_vertices = unpack_MatrixXd(source_vertices_mat); // size=NS, elm_size=dS
+    kernel->target_vertices = unpack_MatrixXd(target_vertices_mat); // size=NT, elm_size=dT
+    kernel->target_mesh.build_mesh(target_vertices_mat, target_cells_mat);
 
     std::tuple<std::vector<double>, std::vector<Eigen::VectorXd>, std::vector<Eigen::MatrixXd>> 
         moments = IMPULSE::compute_impulse_response_moments(apply_AT, solve_M_in, target_vertices_mat);
-    std::vector<double>          vol    = std::get<0>(moments);
-    std::vector<Eigen::VectorXd> mu     = std::get<1>(moments);
-    std::vector<Eigen::MatrixXd> Sigma0 = std::get<2>(moments);
+    kernel->vol              = std::get<0>(moments);
+    kernel->mu               = std::get<1>(moments);
+    kernel->Sigma_unmodified = std::get<2>(moments);
 
-    std::vector<Eigen::MatrixXd> Sigma(NS);          // size=NS, elm_shape=(dT,dT)
-    std::vector<bool>            Sigma_is_good(NS);  // size=NS
-    std::vector<Eigen::MatrixXd> inv_Sigma(NS);      // size=NS, elm_shape=(dT,dT)
-    std::vector<Eigen::MatrixXd> sqrt_Sigma(NS);     // size=NS, elm_shape=(dT,dT)
-    std::vector<Eigen::MatrixXd> inv_sqrt_Sigma(NS); // size=NS, elm_shape=(dT,dT)
-    std::vector<double>          det_sqrt_Sigma(NS); // size=NS
-    for ( int ii=0; ii<NS; ++ii )
+    kernel->Sigma         .resize(kernel->NS); // elm_shape=(dT,dT)
+    kernel->Sigma_is_good .resize(kernel->NS);
+    kernel->inv_Sigma     .resize(kernel->NS); // elm_shape=(dT,dT)
+    kernel->sqrt_Sigma    .resize(kernel->NS); // elm_shape=(dT,dT)
+    kernel->inv_sqrt_Sigma.resize(kernel->NS); // elm_shape=(dT,dT)
+    kernel->det_sqrt_Sigma.resize(kernel->NS); 
+    for ( int ii=0; ii<kernel->NS; ++ii )
     {
         std::tuple< Eigen::MatrixXd, bool, 
                     Eigen::MatrixXd, Eigen::MatrixXd, Eigen::MatrixXd, double, 
                     Eigen::VectorXd, Eigen::MatrixXd >
-            Sigma_stuff = ELLIPSOID::postprocess_covariance( Sigma0[ii] );
+            Sigma_stuff = ELLIPSOID::postprocess_covariance( kernel->Sigma_unmodified[ii] );
 
-        Sigma[ii]          = std::get<0>(Sigma_stuff);
-        Sigma_is_good[ii]  = std::get<1>(Sigma_stuff);
-        inv_Sigma[ii]      = std::get<2>(Sigma_stuff);
-        sqrt_Sigma[ii]     = std::get<3>(Sigma_stuff);
-        inv_sqrt_Sigma[ii] = std::get<4>(Sigma_stuff);
-        det_sqrt_Sigma[ii] = std::get<5>(Sigma_stuff);
+        kernel->Sigma[ii]          = std::get<0>(Sigma_stuff);
+        kernel->Sigma_is_good[ii]  = std::get<1>(Sigma_stuff);
+        kernel->inv_Sigma[ii]      = std::get<2>(Sigma_stuff);
+        kernel->sqrt_Sigma[ii]     = std::get<3>(Sigma_stuff);
+        kernel->inv_sqrt_Sigma[ii] = std::get<4>(Sigma_stuff);
+        kernel->det_sqrt_Sigma[ii] = std::get<5>(Sigma_stuff);
     }
 
-    AABB::AABBTree ellipsoid_aabb = ELLIPSOID::make_ellipsoid_aabbtree(mu, Sigma, tau);
+    kernel->ellipsoid_aabb = ELLIPSOID::make_ellipsoid_aabbtree(kernel->mu, kernel->Sigma, kernel->tau);
 
-    std::vector<Eigen::VectorXd>  eta_batches;             // size=num_batches, elm_size=NT
-    std::vector<std::vector<int>> dirac_ind_batches;       // size=num_batches
-    std::vector<double>           dirac_squared_distances; // size=NS
-    std::vector<int>              dirac_inds;              // size=num_impulses
-    std::vector<Eigen::VectorXd>  dirac_points;            // size=num_impulses, elm_size=dS
-    std::vector<double>           dirac_weights;           // size=num_impulses
-    std::vector<int>              dirac2batch;             // size=num_impulses
-    KDT::KDTree                   dirac_kdtree;
-
-    dirac_squared_distances.resize(NS);
-    for ( int ii=0; ii<NS; ++ii )
+    kernel->dirac_squared_distances.resize(kernel->NS);
+    for ( int ii=0; ii<kernel->NS; ++ii )
     {
-        dirac_squared_distances[ii] = std::numeric_limits<double>::infinity();
+        kernel->dirac_squared_distances[ii] = std::numeric_limits<double>::infinity();
     }
-
-    LPSFKernel kernel{ dS, dT, NS, NT, 
-                       source_vertices, target_vertices, target_mesh,
-                       apply_A, apply_AT, apply_M_in, apply_M_out, solve_M_in, solve_M_out,
-                       vol, mu, Sigma, tau,
-                       Sigma_is_good, inv_Sigma, sqrt_Sigma, inv_sqrt_Sigma, det_sqrt_Sigma,
-                       ellipsoid_aabb, min_vol_rtol,
-                       eta_batches, dirac_ind_batches, dirac_squared_distances, 
-                       dirac_inds, dirac_points, dirac_weights, dirac2batch, dirac_kdtree, num_neighbors };
 
     for ( int ii=0; ii<num_initial_batches; ++ii )
     {
-        kernel.add_batch();
+        kernel->add_batch();
     }
+
     return kernel;
 }
 
