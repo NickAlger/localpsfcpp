@@ -3,8 +3,10 @@
 /localpsfcpp.egg-info/
 /notebook/.ipynb_checkpoints/
 /notebook/jitfailure*/
-/notebook/block_cluster_tree.eps
-/notebook/cluster_tree.eps
-/notebook/kernel_hmatrix.eps
-/notebook/mesh.xml
-/notebook/mesh_from_file.xml
+/figures/block_cluster_tree.eps
+/figures/cluster_tree.eps
+/figures/kernel_hmatrix.eps
+/tmp/*
+/figures/*
+/tmp/!tmp.txt
+/figures/!fig.txt
