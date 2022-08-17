@@ -101,9 +101,10 @@ PYBIND11_MODULE(localpsfcpp, m) {
 
     // product_convolution_kernel.h
     py::class_<LPSFKernel, std::shared_ptr<LPSFKernel>>(m, "LPSFKernel")
-        .def("add_batch", &LPSFKernel::add_batch)
-        .def("entry",     &LPSFKernel::entry)
-        .def("block",     &LPSFKernel::block)
+        .def("num_batches", &LPSFKernel::num_batches)
+        .def("add_batch",   &LPSFKernel::add_batch)
+        .def("entry",       &LPSFKernel::entry)
+        .def("block",       &LPSFKernel::block)
         .def_readwrite("dS", &LPSFKernel::dS)
         .def_readwrite("dT", &LPSFKernel::dT)
         .def_readwrite("NS", &LPSFKernel::NS)

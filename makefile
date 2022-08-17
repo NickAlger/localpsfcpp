@@ -21,21 +21,14 @@ BUILD_DIR  := ./bin
 LIB_DIR  := ./lib
 PYTHON_DIR := ./localpsfcpp
 
-LDFLAGS  = -shared -L$(HLIBPRO_LIB)
+LDFLAGS  = -L$(HLIBPRO_LIB)
 CXXFLAGS := -std=c++17 -pthread -lpthread -O3 -Wall
 SHAREDFLAGS := -shared -fPIC
-
 LIBS := -lhpro -Wl,-rpath,$(HLIBPRO_LIB)
-
-# ALL_COMPILE_STUFF = $(CXXFLAGS) $(PYFLAGS) -I$(INCLUDE_DIR) -I$(EIGEN_INCLUDE)
-
-ALL_COMPILE_STUFF = $(CXXFLAGS) $(HLIBPRO_FLAGS) $(PYFLAGS) $(SHAREDFLAGS) \
-					-I$(INCLUDE_DIR) -I $(HLIBPRO_INCLUDE) -I$(EIGEN_INCLUDE) \
-					$(LDFLAGS) $(LIBS)
 
 BINDINGS_TARGET = localpsfcpp$(PYSUFFIX)
 
-all: $(PYTHON_DIR)/$(BINDINGS_TARGET)
+all: $(PYTHON_DIR)/$(BINDINGS_TARGET) $(BUILD_DIR)/example1
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -49,10 +42,31 @@ $(PYTHON_DIR)/$(BINDINGS_TARGET): \
  $(INCLUDE_DIR)/impulse_response.h \
  $(INCLUDE_DIR)/interpolation.h \
  $(INCLUDE_DIR)/product_convolution_kernel.h \
- $(INCLUDE_DIR)/hmatrix.h
+ $(INCLUDE_DIR)/hmatrix.h \
+ $(INCLUDE_DIR)/lpsf_utils.h
 	@echo 'Building target: $@'
-#	g++ -o "$@" "$<" $(CXXFLAGS) $(SHAREDFLAGS) $(PYFLAGS) -I$(INCLUDE_DIR) -I$(EIGEN_INCLUDE)
-	g++ -o "$@" "$<" $(ALL_COMPILE_STUFF)
+	g++ -o "$@" "$<" $(CXXFLAGS) $(HLIBPRO_FLAGS) $(PYFLAGS) $(SHAREDFLAGS) \
+					-I$(INCLUDE_DIR) -I $(HLIBPRO_INCLUDE) -I$(EIGEN_INCLUDE) \
+					$(LDFLAGS) $(LIBS)
+	@echo 'Finished building target: $@'
+	@echo ' '
+
+$(BUILD_DIR)/example1: \
+ $(SRC_DIR)/example1.cpp \
+ $(INCLUDE_DIR)/kdtree.h \
+ $(INCLUDE_DIR)/aabbtree.h \
+ $(INCLUDE_DIR)/simplexmesh.h \
+ $(INCLUDE_DIR)/brent_minimize.h \
+ $(INCLUDE_DIR)/ellipsoid.h \
+ $(INCLUDE_DIR)/impulse_response.h \
+ $(INCLUDE_DIR)/interpolation.h \
+ $(INCLUDE_DIR)/product_convolution_kernel.h \
+ $(INCLUDE_DIR)/hmatrix.h \
+ $(INCLUDE_DIR)/lpsf_utils.h
+	@echo 'Building target: $@'
+	g++ -o "$@" "$<" $(CXXFLAGS) $(HLIBPRO_FLAGS) $(PYFLAGS) \
+					-I$(INCLUDE_DIR) -I $(HLIBPRO_INCLUDE) -I$(EIGEN_INCLUDE) \
+					$(LDFLAGS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -61,6 +75,7 @@ $(PYTHON_DIR):
 
 clean:
 	-rm -rf $(PYTHON_DIR)/$(BINDINGS_TARGET)
+	-rm -rf $(BUILD_DIR)/example1
 	-@echo ' '
 
 .PHONY: all clean dependents

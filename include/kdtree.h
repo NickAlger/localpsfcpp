@@ -4,8 +4,9 @@
 #include <list>
 #include <queue>
 #include <vector>
-
 #include <math.h>
+#include <numeric>
+
 #include <Eigen/Dense>
 
 

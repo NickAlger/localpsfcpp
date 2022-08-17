@@ -255,6 +255,11 @@ struct LPSFKernel
 
     int num_neighbors; // number of nearby impulses used in interpolation
 
+    int num_batches()
+    {
+        return eta_batches.size();
+    }
+
     void add_batch()
     {
         std::tuple<std::vector<int>, std::vector<double>>  // (new_batch, squared_distances)
@@ -262,6 +267,11 @@ struct LPSFKernel
                                                  vol, mu, Sigma, Sigma_is_good, tau, ellipsoid_aabb, min_vol_rtol);
         std::vector<int> next_batch_inds = std::get<0>(EB);
         dirac_squared_distances          = std::get<1>(EB);
+
+        if ( next_batch_inds.size() == 0 )
+        {
+            return;
+        }
 
         std::vector<double> next_batch_weights;
         for ( int ind : next_batch_inds )
