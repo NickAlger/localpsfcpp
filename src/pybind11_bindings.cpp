@@ -83,7 +83,8 @@ PYBIND11_MODULE(localpsfcpp, m) {
 
 
     // interpolation.h
-    m.def("TPS_interpolate", &TPS_interpolate);
+    m.def("RBF_TPS_interpolate", &RBF_TPS_interpolate);
+    m.def("RBF_GAUSS_interpolate", &RBF_GAUSS_interpolate);
     m.def("LMDI_points_and_values", &LMDI_points_and_values);
 
     py::enum_<ShiftMethod>(m, "ShiftMethod")
@@ -93,10 +94,14 @@ PYBIND11_MODULE(localpsfcpp, m) {
         .value("ELLIPSOID_MAPPING",                  ShiftMethod::ELLIPSOID_MAPPING);
 
     py::enum_<ScalingMethod>(m, "ScalingMethod")
-        .value("NONE",    ScalingMethod::NONE)
-        .value("VOL",     ScalingMethod::VOL)
-        .value("DET",     ScalingMethod::DET)
+        .value("NONE",   ScalingMethod::NONE)
+        .value("VOL",    ScalingMethod::VOL)
+        .value("DET",    ScalingMethod::DET)
         .value("DETVOL", ScalingMethod::DETVOL);
+
+    py::enum_<InterpolationMethod>(m, "InterpolationMethod")
+        .value("RBF_THIN_PLATE_SPLINES", InterpolationMethod::RBF_THIN_PLATE_SPLINES)
+        .value("RBF_GAUSS",              InterpolationMethod::RBF_GAUSS);
 
 
     // product_convolution_kernel.h

@@ -8,6 +8,7 @@
 
 #include "interpolation.h"
 #include "product_convolution_kernel.h"
+#include "lpsf_utils.h"
 
 
 namespace HMAT {
@@ -64,6 +65,7 @@ struct LPSFKernelHPRO : public HLIB::TCoeffFn< real_t >
     std::shared_ptr<PCK::LPSFKernel> Ker_ptr;
     INTERP::ShiftMethod              shift_method;
     INTERP::ScalingMethod            scaling_method;
+    INTERP::InterpolationMethod      interpolation_method;
 
     void eval( const std::vector< HLIB::idx_t > &  rowidxs,
                const std::vector< HLIB::idx_t > &  colidxs,
@@ -83,7 +85,8 @@ struct LPSFKernelHPRO : public HLIB::TCoeffFn< real_t >
             source_inds[jj] = colidxs[jj];
         }
 
-        Eigen::MatrixXd K_block = Ker_ptr->block( target_inds, source_inds, shift_method, scaling_method );
+        Eigen::MatrixXd K_block = Ker_ptr->block( target_inds, source_inds, 
+                                                  shift_method, scaling_method, interpolation_method );
 
         for ( size_t  jj = 0; jj < ncol; ++jj )
         {
@@ -103,13 +106,15 @@ std::shared_ptr<HLIB::TMatrix> build_lpsfkernel_hmatrix(std::shared_ptr<PCK::LPS
                                                         std::shared_ptr<HLIB::TBlockClusterTree> bct_ptr,
                                                         INTERP::ShiftMethod                      shift_method,
                                                         INTERP::ScalingMethod                    scaling_method,
+                                                        INTERP::InterpolationMethod              interpolation_method,
                                                         double                                   tol,
                                                         bool                                     display)
-{                                                        
+{
     LPSFKernelHPRO coefffn;
-    coefffn.Ker_ptr = Ker_ptr;
-    coefffn.shift_method = shift_method;
-    coefffn.scaling_method = scaling_method;
+    coefffn.Ker_ptr              = Ker_ptr;
+    coefffn.shift_method         = shift_method;
+    coefffn.scaling_method       = scaling_method;
+    coefffn.interpolation_method = interpolation_method;
     return build_hmatrix_from_coefffn( coefffn, bct_ptr, tol, display );
 }
 
@@ -193,6 +198,14 @@ Eigen::MatrixXd TMatrix_submatrix( const std::shared_ptr<HLIB::TMatrix>         
         }
     }
     return submatrix;
+}
+
+Eigen::MatrixXd TMatrix_to_array( const std::shared_ptr<HLIB::TMatrix>           A_ptr, 
+                                  const std::shared_ptr<HLIB::TBlockClusterTree> bct_ptr )
+{
+    std::vector<unsigned long int> row_inds = LPSFUTIL::arange<unsigned long int>(0, A_ptr->rows());
+    std::vector<unsigned long int> col_inds = LPSFUTIL::arange<unsigned long int>(0, A_ptr->cols());
+    return TMatrix_submatrix(A_ptr, bct_ptr, row_inds, col_inds );
 }
 
 }

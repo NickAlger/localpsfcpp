@@ -15,9 +15,9 @@ namespace INTERP
 {
 
 // Radial basis function interpolation with thin plate spline basis functions
-double TPS_interpolate( const Eigen::VectorXd & function_at_rbf_points,
-                        const Eigen::MatrixXd & rbf_points,
-                        const Eigen::VectorXd & eval_point )
+double RBF_TPS_interpolate( const Eigen::VectorXd & function_at_rbf_points,
+                            const Eigen::MatrixXd & rbf_points,
+                            const Eigen::VectorXd & eval_point )
 {
     int N = rbf_points.cols();
 
@@ -59,6 +59,50 @@ double TPS_interpolate( const Eigen::VectorXd & function_at_rbf_points,
             {
                 rbfs_at_eval_point(ii) = 0.5 * r_squared * log(r_squared);
             }
+        }
+
+        function_at_eval_point = (weights.array() * rbfs_at_eval_point.array()).sum();
+    }
+    return function_at_eval_point;
+}
+
+// Radial basis function interpolation with Gaussian kernel basis functions
+double RBF_GAUSS_interpolate( const Eigen::VectorXd & function_at_rbf_points,
+                              const Eigen::MatrixXd & rbf_points,
+                              const Eigen::VectorXd & eval_point )
+{
+    int N = rbf_points.cols();
+
+    double function_at_eval_point;
+    if ( N == 1 )
+    {
+        function_at_eval_point = function_at_rbf_points(0);
+    }
+    else
+    {
+        Eigen::VectorXd max_pt = rbf_points.rowwise().maxCoeff();
+        Eigen::VectorXd min_pt  = rbf_points.rowwise().minCoeff();
+
+        double diam_squared = (max_pt - min_pt).squaredNorm();
+        double sigma_squared = diam_squared / 3.0;
+
+        Eigen::MatrixXd M(N, N);
+        for ( int jj=0; jj<N; ++jj )
+        {
+            for ( int ii=0; ii<N; ++ii )
+            {
+                double r_squared = (rbf_points.col(ii) - rbf_points.col(jj)).squaredNorm();
+                M(ii,jj) = exp( - 0.5 * r_squared / sigma_squared);
+            }
+        }
+
+        Eigen::VectorXd weights = M.lu().solve(function_at_rbf_points);
+
+        Eigen::VectorXd rbfs_at_eval_point(N);
+        for ( int ii=0; ii<N; ++ii )
+        {
+            double r_squared = (rbf_points.col(ii) - eval_point).squaredNorm();
+            rbfs_at_eval_point(ii) = exp( - 0.5 * r_squared / sigma_squared);
         }
 
         function_at_eval_point = (weights.array() * rbfs_at_eval_point.array()).sum();
@@ -165,6 +209,9 @@ enum class ScalingMethod { NONE,  // w = 1.0
                            DET,   // w = det_sqrt_Sigma_xj / det_sqrt_Sigma_x
                            DETVOL // w = (vol_x / vol_xj) * (det_sqrt_Sigma_xj / det_sqrt_Sigma_x)
                          };
+
+enum class InterpolationMethod { RBF_THIN_PLATE_SPLINES, // Thin plate spline radial basis function interpolation
+                                 RBF_GAUSS };            // Gaussian radial basis function interpolation
 
 // Local local translation invariance points and values
 std::vector<std::pair<Eigen::VectorXd, double>> 

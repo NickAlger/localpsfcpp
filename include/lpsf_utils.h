@@ -9,6 +9,27 @@
 namespace LPSFUTIL
 {
 
+template<typename integer_type>
+std::vector<integer_type> arange(integer_type start, integer_type stop)
+{
+    std::vector<integer_type> v;
+    for ( integer_type ii=start; ii<stop; ++ii )
+    {
+        v.push_back(ii);
+    }
+    return v;
+}
+
+std::vector<Eigen::VectorXd> unpack_MatrixXd_columns( const Eigen::MatrixXd & V )
+{
+    std::vector<Eigen::VectorXd> vv(V.cols());
+    for ( unsigned long int ii=0; ii<V.cols(); ++ii )
+    {
+        vv[ii] = V.col(ii);
+    }
+    return vv;
+}
+
 Eigen::MatrixXd readMatrix(const char *filename)
 //based on https://stackoverflow.com/a/22988866/484944
 {
@@ -43,8 +64,8 @@ Eigen::MatrixXd readMatrix(const char *filename)
 
 	// Populate matrix with numbers.
 	Eigen::MatrixXd result(nrow, ncol);
-	for (int ii = 0; ii < nrow; ++ii)
-		for (int jj = 0; jj < ncol; ++jj)
+	for (unsigned long int ii = 0; ii < nrow; ++ii)
+		for (unsigned long int jj = 0; jj < ncol; ++jj)
             result(ii,jj) = buff[ii][jj];
 
 	return result;

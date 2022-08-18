@@ -32,42 +32,49 @@ namespace py = pybind11;
 int main()
 {
     // Options
-    int    num_neighbors          = 10;
-    double ellipsoid_tau          = 3.0;
-    double hmatrix_tol            = 1.0e-6;
-    double bct_admissibility_eta  = 2.0;
+    int    num_neighbors          = 10;     // number of impulses used for interpolation
+    double ellipsoid_tau          = 3.0;    // How big the ellipsods are (in standard deviations)
+    double hmatrix_tol            = 1.0e-6; // relative tolerance for low rank approximation of matrix blocks
+    double bct_admissibility_eta  = 2.0;    // block (A,B) is admissible if min(diam(A), diam(B)) < eta*dist(A, B)
     int    cluster_size_cutoff    = 32;
-    int    min_vol_rtol           = 1e-5;
+    int    min_vol_rtol           = 1e-5;   // parameter for throwing away impulses with small volumes
     int    num_initial_batches    = 0;
 
-    INTERP::ShiftMethod   shift_method   = INTERP::ShiftMethod::ELLIPSOID_MAPPING;
-    INTERP::ScalingMethod scaling_method = INTERP::ScalingMethod::DETVOL;
+    INTERP::ShiftMethod         shift_method         = INTERP::ShiftMethod::ELLIPSOID_MAPPING;
+    INTERP::ScalingMethod       scaling_method       = INTERP::ScalingMethod::DETVOL;
+    // INTERP::InterpolationMethod interpolation_method = INTERP::InterpolationMethod::RBF_THIN_PLATE_SPLINES;
+    INTERP::InterpolationMethod interpolation_method = INTERP::InterpolationMethod::RBF_GAUSS;
 
-    // std::vector<int> all_num_batches = {1, 5, 25};
-    std::vector<int> all_num_batches = {1, 2, 3, 4, 5, 10, 15, 20, 25, 50, 100};
+    std::vector<int> all_num_batches = {1, 5, 25, 50, 100};
+
 
     // Load data from file
-    Eigen::MatrixXd mesh_vertices        = LPSFUTIL::readMatrix("../data/mesh_vertices.txt").transpose();
-    Eigen::MatrixXd mesh_cells_double    = LPSFUTIL::readMatrix("../data/mesh_cells.txt")   .transpose();
-    Eigen::MatrixXd dof_coords           = LPSFUTIL::readMatrix("../data/dof_coords.txt")   .transpose();
-    Eigen::MatrixXd Hdgn                 = LPSFUTIL::readMatrix("../data/Hdgn_array.txt");
-    Eigen::VectorXd vertex_in_dof_double = LPSFUTIL::readMatrix("../data/vertex_in_dof.txt");
-    Eigen::VectorXd dof_in_vertex_double = LPSFUTIL::readMatrix("../data/dof_in_vertex.txt");
-    Eigen::VectorXd mass_lumps           = LPSFUTIL::readMatrix("../data/mass_matrix_rowsums.txt");
+    Eigen::MatrixXd vertices   = LPSFUTIL::readMatrix("../data/mesh_vertices.txt").transpose(); // shape=(d,N)
+    Eigen::MatrixXd Hdgn       = LPSFUTIL::readMatrix("../data/Hdgn_array.txt");                // shape=(N,N)
+    Eigen::VectorXd mass_lumps = LPSFUTIL::readMatrix("../data/mass_matrix_rowsums.txt");       // size =(N,)
 
-    Eigen::MatrixXi mesh_cells    = LPSFUTIL::matrix_double_to_int(mesh_cells_double);
-    Eigen::VectorXi vertex_in_dof = LPSFUTIL::matrix_double_to_int(vertex_in_dof_double);
-    Eigen::VectorXi dof_in_vertex = LPSFUTIL::matrix_double_to_int(dof_in_vertex_double);
+    Eigen::MatrixXd cells_double         = LPSFUTIL::readMatrix("../data/mesh_cells.txt").transpose(); // shape=(d+1,N)
+    Eigen::VectorXd dof_in_vertex_double = LPSFUTIL::readMatrix("../data/dof_in_vertex.txt");          // size = (N,)
+    Eigen::VectorXd vertex_in_dof_double = LPSFUTIL::readMatrix("../data/vertex_in_dof.txt");          // size = N
 
-    std::cout << "mesh_vertices shape=(" << mesh_vertices.rows() << ", " << mesh_vertices.cols() << ")" << std::endl;
-    std::cout << "mesh_cells shape=("    << mesh_cells   .rows() << ", " << mesh_cells   .cols() << ")" << std::endl;
-    std::cout << "dof_coords shape=("    << dof_coords   .rows() << ", " << dof_coords   .cols() << ")" << std::endl;
+    Eigen::MatrixXi cells         = LPSFUTIL::matrix_double_to_int(cells_double);         // shape=(d+1,M)
+    Eigen::VectorXi dof_in_vertex = LPSFUTIL::matrix_double_to_int(dof_in_vertex_double); // size =N
+    Eigen::VectorXi vertex_in_dof = LPSFUTIL::matrix_double_to_int(vertex_in_dof_double); // size =N
+
+    int d = vertices.rows(); // spatial dimension        (e.g., 1, 2, or 3)
+    int N = vertices.cols(); // number of mesh vertices  (e.g., thousands+)
+    int M = cells.cols();    // number of mesh triangles (e.g., thousands+)
+
+    std::cout << "vertices shape=("      << vertices     .rows() << ", " << vertices     .cols() << ")" << std::endl;
+    std::cout << "cells shape=("         << cells        .rows() << ", " << cells        .cols() << ")" << std::endl;
     std::cout << "dof_in_vertex shape=(" << dof_in_vertex.rows() << ", " << dof_in_vertex.cols() << ")" << std::endl;
     std::cout << "Hdgn shape=("          << Hdgn         .rows() << ", " << Hdgn         .cols() << ")" << std::endl;
-    std::cout << "vertex_in_dof size=" << vertex_in_dof.size() << std::endl;
+
     std::cout << "dof_in_vertex size=" << dof_in_vertex.size() << std::endl;
     std::cout << "mass_lumps size="    << mass_lumps   .size() << std::endl;
 
+
+    // Create linear operators that apply the Gauss-Newton Hessian and the lumped mass matrix to vectors
     std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_Hdgn  
         = [&Hdgn](Eigen::VectorXd x) { return Hdgn * x; };
 
@@ -77,41 +84,32 @@ int main()
     std::function<Eigen::VectorXd(Eigen::VectorXd)> solve_ML 
         = [&mass_lumps](Eigen::VectorXd x) { return (x.array() / mass_lumps.array()).matrix(); };
 
-    Eigen::MatrixXd mesh_vertices_dof_order(mesh_vertices.rows(), mesh_vertices.cols());
-    for ( int ii=0; ii<mesh_vertices_dof_order.rows(); ++ii )
+
+    // Reorder vertices and cells to the degree of freedom ordering
+    Eigen::MatrixXd vertices_dof_order(d, N);
+    for ( int ii=0; ii<N; ++ii )
     {
-        for ( int jj=0; jj<mesh_vertices_dof_order.cols(); ++jj )
+        vertices_dof_order.col(ii) = vertices.col(dof_in_vertex(ii));
+    }
+
+    Eigen::MatrixXi cells_dof_order(d+1, M);
+    for ( int ii=0; ii<d+1; ++ii )
+    {
+        for ( int jj=0; jj<M; ++jj )
         {
-            mesh_vertices_dof_order(ii,jj) = mesh_vertices(ii, dof_in_vertex(jj));
+            cells_dof_order(ii,jj) = vertex_in_dof(cells(ii,jj));
         }
     }
 
-    Eigen::MatrixXi mesh_cells_dof_order(mesh_cells.rows(), mesh_cells.cols());
-    for ( int ii=0; ii<mesh_cells_dof_order.rows(); ++ii )
-    {
-        for ( int jj=0; jj<mesh_cells_dof_order.cols(); ++jj )
-        {
-            mesh_cells_dof_order(ii,jj) = vertex_in_dof(mesh_cells(ii,jj));
-        }
-    }
+    // unpack vertices from a MatrixXd into a vector of VectorXd. size=N, elm_size=d
+    std::vector<Eigen::VectorXd> vertices_dof_order_vector = LPSFUTIL::unpack_MatrixXd_columns(vertices_dof_order);
 
-    std::vector<Eigen::VectorXd> dof_coords_vector;
-    for ( int ii=0; ii<dof_coords.cols(); ++ii )
-    {
-        dof_coords_vector.push_back(dof_coords.col(ii));
-    }
-
-    std::vector<unsigned long int> one_through_N(Hdgn.cols());
-    for ( unsigned long int ii=0; ii<Hdgn.cols(); ++ii )
-    {
-        one_through_N[ii] = ii;
-    }
 
     // Build dense kernel K = diag(1/mass_lumps) * Hdgn *  diag(1/mass_lumps)
-    Eigen::MatrixXd K_true(Hdgn.rows(), Hdgn.cols());
-    for ( int ii=0; ii<Hdgn.rows(); ++ii )
+    Eigen::MatrixXd K_true(N, N);
+    for ( int ii=0; ii<N; ++ii )
     {
-        for ( int jj=0; jj<Hdgn.cols(); ++jj )
+        for ( int jj=0; jj<N; ++jj )
         {
             K_true(ii,jj) = Hdgn(ii,jj) / (mass_lumps(ii) * mass_lumps(jj));
         }
@@ -119,7 +117,7 @@ int main()
 
     // Build cluster tree
     std::shared_ptr<HLIB::TClusterTree> ct_ptr 
-        = HMAT::build_cluster_tree_from_dof_coords(dof_coords_vector, 32);
+        = HMAT::build_cluster_tree_from_dof_coords(vertices_dof_order_vector, cluster_size_cutoff);
 
     // Build block cluster tree
     std::shared_ptr<HLIB::TBlockClusterTree> bct_ptr
@@ -130,8 +128,8 @@ int main()
         = PCK::create_LPSFKernel(apply_Hdgn, apply_Hdgn, 
                                  apply_ML, apply_ML, 
                                  solve_ML, solve_ML, 
-                                 mesh_vertices_dof_order, mesh_vertices_dof_order, 
-                                 mesh_cells_dof_order, 
+                                 vertices_dof_order, vertices_dof_order, 
+                                 cells_dof_order, 
                                  ellipsoid_tau, num_neighbors, min_vol_rtol, num_initial_batches);
 
     //Add batches to kernel, compute hmatrix, convert hmatrix to dense, check error
@@ -139,26 +137,27 @@ int main()
     std::vector<double> errs;
     for ( int nb : all_num_batches )
     {
+        // Add batches until the desired number is reached
         while ( lpsf_kernel_ptr->num_batches() < nb )
         {
-            int nb_old = lpsf_kernel_ptr->num_batches();
-
-            lpsf_kernel_ptr->add_batch();
-
-            // It may happen that we run out of points and cannot add another batch
-            if ( lpsf_kernel_ptr->num_batches() == nb_old )
+            bool batch_added_successfully = lpsf_kernel_ptr->add_batch();
+            if ( !batch_added_successfully ) // If we run out of points we cannot add another batch
             {
                 break;
             }
         }
+
+        // Construct hmatrix
+        bool display_progress = true;
         std::shared_ptr<HLIB::TMatrix> kernel_hmatrix_ptr
             = HMAT::build_lpsfkernel_hmatrix(lpsf_kernel_ptr, bct_ptr, 
-                                             shift_method, scaling_method,
-                                             hmatrix_tol, true);
+                                             shift_method, scaling_method, interpolation_method,
+                                             hmatrix_tol, display_progress);
 
-        Eigen::MatrixXd K = HMAT::TMatrix_submatrix( kernel_hmatrix_ptr, bct_ptr, 
-                                                     one_through_N, one_through_N );
+        // Convert hmatrix to dense array to check error (not scalable)
+        Eigen::MatrixXd K = HMAT::TMatrix_to_array( kernel_hmatrix_ptr, bct_ptr );
         
+        // Compute relative error in lpsf/hmatrix approximation
         double err = (K_true - K).norm() / K_true.norm();
         std::cout << "num_batches=" << lpsf_kernel_ptr->num_batches() << ", err=" << err << std::endl;
         
@@ -167,7 +166,8 @@ int main()
     }
 
     // display results
-    for ( int ii=0; ii<errs.size(); ++ii )
+    std::cout << std::endl;
+    for ( unsigned int ii=0; ii<errs.size(); ++ii )
     {
         std::cout << "num_batches=" << actual_num_batches[ii] << ", err=" << errs[ii] << std::endl;
     }
