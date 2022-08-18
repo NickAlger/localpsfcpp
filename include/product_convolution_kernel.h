@@ -109,7 +109,8 @@ struct LPSFKernel
                   unsigned long int source_ind, 
                   INTERP::ShiftMethod         shift_method,
                   INTERP::ScalingMethod       scaling_method,
-                  INTERP::InterpolationMethod interpolation_method
+                  INTERP::InterpolationMethod interpolation_method,
+                  bool                        use_symmetry
                   ) const
     {
         std::vector<std::pair<Eigen::VectorXd, double>> points_and_values
@@ -120,6 +121,68 @@ struct LPSFKernel
                                                       eta_batches, dirac_inds, dirac_weights, dirac2batch,
                                                       dirac_kdtree, num_neighbors,
                                                       shift_method, scaling_method);
+
+        // if ( use_symmetry )
+        // {
+        //     std::vector<std::pair<Eigen::VectorXd, double>> points_and_values2
+        //         = INTERP::interpolation_points_and_values(source_ind, target_ind, // switch source and target
+        //                                                   source_vertices, target_vertices, target_mesh,
+        //                                                   vol, mu, inv_Sigma, sqrt_Sigma, 
+        //                                                   inv_sqrt_Sigma, det_sqrt_Sigma, tau,
+        //                                                   eta_batches, dirac_inds, dirac_weights, dirac2batch,
+        //                                                   dirac_kdtree, num_neighbors,
+        //                                                   shift_method, scaling_method);
+
+        //     int n1 = points_and_values.size();
+        //     int n2 = points_and_values2.size();
+
+        //     if ( n2 > 0 )
+        //     {
+        //         points_and_values.reserve(n1 + n2);
+        //         if ( n1 == 1 && n2 == 1 )
+        //         {
+        //             // eq_tol = (source_vertices[source_ind] - target_vertices[target_ind]).norm() * 1e-10;
+
+        //         }
+
+        //         Eigen::VectorXd min_point = points_and_values2[0].first;
+        //         Eigen::VectorXd max_point = points_and_values2[0].first;
+        //         for ( int ii=0; ii<n1; ++ii )
+        //         {
+        //             min_point = min_point.cwiseMin(points_and_values[ii].first);
+        //             max_point = max_point.cwiseMax(points_and_values[ii].first);
+        //         }
+        //         for ( int ii=0; ii<n2; ++ii )
+        //         {
+        //             min_point = min_point.cwiseMin(points_and_values2[ii].first);
+        //             max_point = max_point.cwiseMax(points_and_values2[ii].first);
+        //         }
+        //         double diam = (max_point - min_point).norm();
+        //         double min_dist = diam / 10.0;
+                
+        //         if ( min_dist > 0 ) // in case same point is only entry for both
+        //         {
+        //         for ( int ii=0; ii<n2; ++ii )
+        //             {
+        //                 Eigen::VectorXd x2 = points_and_values2[ii].first;
+        //                 bool add_x2 = true;
+        //                 for ( int jj=0; jj<points_and_values.size(); ++jj ) // points_and_values is changing size
+        //                 {
+        //                     Eigen::VectorXd x = points_and_values[jj].first;
+        //                     if ( (x2 - x).norm() < min_dist )
+        //                     {
+        //                         add_x2 = false;
+        //                         break;
+        //                     }
+        //                 }
+        //                 if ( add_x2 )
+        //                 {
+        //                     points_and_values.push_back(points_and_values2[ii]);
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         
         double entry = 0.0;
         int np = points_and_values.size();
@@ -150,7 +213,8 @@ struct LPSFKernel
                            const std::vector<unsigned long int> & source_inds,
                            INTERP::ShiftMethod         shift_method,
                            INTERP::ScalingMethod       scaling_method,
-                           INTERP::InterpolationMethod interpolation_method
+                           INTERP::InterpolationMethod interpolation_method,
+                           bool                        use_symmetry
                            ) const
     {
         int nrow = target_inds.size();
@@ -161,7 +225,7 @@ struct LPSFKernel
             for ( int jj=0; jj<ncol; ++jj )
             {
                 block(ii,jj) = entry( target_inds[ii], source_inds[jj], 
-                                      shift_method, scaling_method, interpolation_method );
+                                      shift_method, scaling_method, interpolation_method, use_symmetry );
             }
         }
         return block;

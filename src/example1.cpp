@@ -42,8 +42,9 @@ int main()
 
     INTERP::ShiftMethod         shift_method         = INTERP::ShiftMethod::ELLIPSOID_MAPPING;
     INTERP::ScalingMethod       scaling_method       = INTERP::ScalingMethod::DETVOL;
-    // INTERP::InterpolationMethod interpolation_method = INTERP::InterpolationMethod::RBF_THIN_PLATE_SPLINES;
     INTERP::InterpolationMethod interpolation_method = INTERP::InterpolationMethod::RBF_GAUSS;
+    // INTERP::InterpolationMethod interpolation_method = INTERP::InterpolationMethod::RBF_THIN_PLATE_SPLINES;
+    bool                        use_symmetry         = false; // use_symmetry=true is not implemented yet
 
     std::vector<int> all_num_batches = {1, 5, 25, 50, 100};
 
@@ -151,7 +152,7 @@ int main()
         bool display_progress = true;
         std::shared_ptr<HLIB::TMatrix> kernel_hmatrix_ptr
             = HMAT::build_lpsfkernel_hmatrix(lpsf_kernel_ptr, bct_ptr, 
-                                             shift_method, scaling_method, interpolation_method,
+                                             shift_method, scaling_method, interpolation_method, use_symmetry,
                                              hmatrix_tol, display_progress);
 
         // Convert hmatrix to dense array to check error (not scalable)

@@ -66,6 +66,7 @@ struct LPSFKernelHPRO : public HLIB::TCoeffFn< real_t >
     INTERP::ShiftMethod              shift_method;
     INTERP::ScalingMethod            scaling_method;
     INTERP::InterpolationMethod      interpolation_method;
+    bool                             use_symmetry;
 
     void eval( const std::vector< HLIB::idx_t > &  rowidxs,
                const std::vector< HLIB::idx_t > &  colidxs,
@@ -86,7 +87,7 @@ struct LPSFKernelHPRO : public HLIB::TCoeffFn< real_t >
         }
 
         Eigen::MatrixXd K_block = Ker_ptr->block( target_inds, source_inds, 
-                                                  shift_method, scaling_method, interpolation_method );
+                                                  shift_method, scaling_method, interpolation_method, use_symmetry );
 
         for ( size_t  jj = 0; jj < ncol; ++jj )
         {
@@ -107,6 +108,7 @@ std::shared_ptr<HLIB::TMatrix> build_lpsfkernel_hmatrix(std::shared_ptr<PCK::LPS
                                                         INTERP::ShiftMethod                      shift_method,
                                                         INTERP::ScalingMethod                    scaling_method,
                                                         INTERP::InterpolationMethod              interpolation_method,
+                                                        bool                                     use_symmetry,
                                                         double                                   tol,
                                                         bool                                     display)
 {
@@ -115,6 +117,7 @@ std::shared_ptr<HLIB::TMatrix> build_lpsfkernel_hmatrix(std::shared_ptr<PCK::LPS
     coefffn.shift_method         = shift_method;
     coefffn.scaling_method       = scaling_method;
     coefffn.interpolation_method = interpolation_method;
+    coefffn.use_symmetry         = use_symmetry;
     return build_hmatrix_from_coefffn( coefffn, bct_ptr, tol, display );
 }
 

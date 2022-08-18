@@ -84,7 +84,7 @@ double RBF_GAUSS_interpolate( const Eigen::VectorXd & function_at_rbf_points,
         Eigen::VectorXd min_pt  = rbf_points.rowwise().minCoeff();
 
         double diam_squared = (max_pt - min_pt).squaredNorm();
-        double sigma_squared = diam_squared / 3.0;
+        double sigma_squared = diam_squared / (3.0 * 3.0);
 
         Eigen::MatrixXd M(N, N);
         for ( int jj=0; jj<N; ++jj )
