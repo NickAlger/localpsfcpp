@@ -24,6 +24,7 @@
 #include "impulse_response.h"
 #include "product_convolution_kernel.h"
 #include "hmatrix.h"
+#include "lpsf_utils.h"
 
 namespace py = pybind11;
 
@@ -39,6 +40,7 @@ using namespace INTERP;
 using namespace IMPULSE;
 using namespace PCK;
 using namespace HMAT;
+using namespace LPSFUTIL;
 
 
 PYBIND11_MODULE(localpsfcpp, m) {
@@ -238,6 +240,9 @@ PYBIND11_MODULE(localpsfcpp, m) {
     m.def("visualize_hmatrix", &visualize_hmatrix);
     m.def("TMatrix_entry", &TMatrix_entry);
     m.def("TMatrix_submatrix", &TMatrix_submatrix);
+
+    // lpsf_utils.h
+    m.def("make_unit_square_mesh", &make_unit_square_mesh);
 
 }
 

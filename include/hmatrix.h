@@ -5,6 +5,7 @@
 #include <Eigen/Dense>
 #include <Eigen/LU>
 #include <hlib.hh>
+#include <hpro/vector/TVector.hh>
 
 #include "interpolation.h"
 #include "product_convolution_kernel.h"
@@ -178,7 +179,7 @@ void visualize_hmatrix(std::shared_ptr<HLIB::TMatrix> A_ptr, std::string title)
 
 double TMatrix_entry(const std::shared_ptr<HLIB::TMatrix>           A_ptr, 
                      const std::shared_ptr<HLIB::TBlockClusterTree> bct_ptr,
-                     unsigned long int row_ind, unsigned long int col_ind)
+                     unsigned long int row_ind, unsigned long int   col_ind)
 {
     return A_ptr->entry(bct_ptr->row_ct()->perm_e2i()->permute(row_ind), 
                         bct_ptr->col_ct()->perm_e2i()->permute(col_ind));
@@ -209,6 +210,52 @@ Eigen::MatrixXd TMatrix_to_array( const std::shared_ptr<HLIB::TMatrix>          
     std::vector<unsigned long int> row_inds = LPSFUTIL::arange<unsigned long int>(0, A_ptr->rows());
     std::vector<unsigned long int> col_inds = LPSFUTIL::arange<unsigned long int>(0, A_ptr->cols());
     return TMatrix_submatrix(A_ptr, bct_ptr, row_inds, col_inds );
+}
+
+
+// y=A*x   or   y=A^T*x   or   y=A^H*x
+Eigen::VectorXd TMatrix_matvec(const std::shared_ptr<HLIB::TMatrix>           A_ptr,
+                               const std::shared_ptr<HLIB::TBlockClusterTree> bct_ptr,
+                               const Eigen::VectorXd &                        x,
+                               const HLIB::matop_t &                          op)
+{
+    std::unique_ptr<HLIB::TVector> x_hlib;
+    std::unique_ptr<HLIB::TVector> y_hlib;
+    const HLIB::TPermutation * x_perm_e2i;
+    const HLIB::TPermutation * y_perm_i2e;
+    if ( op==HLIB::MATOP_NORM || op==HLIB::apply_normal )
+    {
+        x_hlib = A_ptr.get()->col_vector();
+        y_hlib = A_ptr.get()->row_vector();
+        
+        x_perm_e2i = bct_ptr->col_ct()->perm_e2i();
+        y_perm_i2e = bct_ptr->row_ct()->perm_i2e();
+    }
+    else
+    {
+        y_hlib = A_ptr.get()->col_vector();
+        x_hlib = A_ptr.get()->row_vector();
+        
+        y_perm_i2e = bct_ptr->col_ct()->perm_i2e();
+        x_perm_e2i = bct_ptr->row_ct()->perm_e2i();
+    }
+
+    for ( size_t jj = 0; jj < x_hlib->size(); jj++ )
+    {
+        x_hlib->set_entry( jj, x(jj) );
+    }
+
+    x_perm_e2i->permute( x_hlib.get() );
+
+    A_ptr->apply(x_hlib.get(), y_hlib.get(), op);
+
+    y_perm_i2e->permute( y_hlib.get() );
+
+    Eigen::VectorXd y(y_hlib->size());
+    for ( size_t ii = 0; ii < y.size(); ii++ )
+        y(ii) = y_hlib->entry( ii );
+
+    return y;
 }
 
 }

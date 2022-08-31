@@ -84,4 +84,46 @@ Eigen::MatrixXi matrix_double_to_int(Eigen::MatrixXd M_double)
     return M_int;
 }
 
+std::tuple<Eigen::MatrixXd, Eigen::MatrixXi> make_unit_square_mesh(unsigned int nx, unsigned int ny)
+{
+    int d = 2; // spatial dimension
+
+    Eigen::MatrixXd vertices(d, (nx+1)*(ny+1));
+    for ( int jj=0; jj<ny+1; ++jj )
+    {
+        for ( int ii=0; ii<nx+1; ++ii )
+        {
+            int ind = jj*(nx+1)+ii;
+            vertices(0, ind) = ((double)ii) / ((double)nx);
+            vertices(1, ind) = ((double)jj) / ((double)ny);
+        }
+    }
+
+    Eigen::MatrixXi cells(d+1, 2*nx*ny);
+    int kk=0;
+    for ( int jj=0; jj<ny; ++jj )
+    {
+        for ( int ii=0; ii<nx; ++ii )
+        {
+            int bot_left  = jj*(nx+1) + ii;
+            int bot_right = bot_left + 1;
+            int top_left  = bot_left + nx + 1;
+            int top_right = top_left + 1;
+
+            cells(0, kk) = bot_left;
+            cells(1, kk) = bot_right;
+            cells(2, kk) = top_left;
+            kk += 1;
+
+            cells(0, kk) = bot_right;
+            cells(1, kk) = top_right;
+            cells(2, kk) = top_left;
+            kk += 1;
+        }
+    }
+
+    return std::make_tuple(vertices, cells);
+}
+
+
 }
