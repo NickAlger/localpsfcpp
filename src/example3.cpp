@@ -102,9 +102,9 @@ int main()
     //           like: finite element convergence, or finite difference check of gradient
 
     // std::vector<double> all_sigma       = {0.05, 0.025, 0.0125};
-    std::vector<int>    all_nn          = {64}; //{32}; //{8, 16, 32}; //, 128}; // mesh is n x n
+    std::vector<int>    all_nn          = {75}; //{32}; //{8, 16, 32}; //, 128}; // mesh is n x n
     std::vector<double> all_tau         = {1.0, 2.0, 3.0, 4.0, 5.0}; //{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0}; // Ellipsoid size in standard deviations
-    std::vector<int>    all_num_batches = {128}; //{5, 20, 100, 200}; //{1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
+    std::vector<int>    all_num_batches = {25}; //{5, 20, 100, 200}; //{1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
 
     std::vector<int>    nns;
     std::vector<double> hs;
