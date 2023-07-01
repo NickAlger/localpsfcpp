@@ -37,7 +37,7 @@ int main()
     double hmatrix_tol            = 1.0e-6; // relative tolerance for low rank approximation of matrix blocks
     double bct_admissibility_eta  = 2.0;    // block (A,B) is admissible if min(diam(A), diam(B)) < eta*dist(A, B)
     int    cluster_size_cutoff    = 32;
-    int    min_vol_rtol           = 1e-5;   // parameter for throwing away impulses with small volumes
+    double    min_vol_rtol        = 1e-5;   // parameter for throwing away impulses with small volumes
     int    num_initial_batches    = 0;
 
     INTERP::ShiftMethod         shift_method         = INTERP::ShiftMethod::ELLIPSOID_MAPPING;

@@ -5,13 +5,18 @@
 #include <vector>
 #include <cmath>
 
-#include <pybind11/pybind11.h>
+// #include <pybind11/pybind11.h>
+// #include <pybind11.h>
+// #include "pybind11/pybind11.h"
+// #include "pybind11.h"
 
 #include <Eigen/Dense>
 #include <Eigen/LU>
-#include <pybind11/eigen.h>
-#include <pybind11/stl.h>
-#include <pybind11/functional.h>
+// #include <eigen3/Eigen/Dense>
+// #include <eigen3/Eigen/LU>
+// #include <pybind11/eigen.h>
+// #include <pybind11/stl.h>
+// #include <pybind11/functional.h>
 
 #include <hlib.hh>
 #include <hpro/algebra/mat_norm.hh>
@@ -27,7 +32,7 @@
 #include "product_convolution_kernel.h"
 #include "hmatrix.h"
 
-namespace py = pybind11;
+// namespace py = pybind11;
 
 #if HLIB_SINGLE_PREC == 1
 using  real_t = float;
@@ -167,7 +172,7 @@ int main()
                 int true_nb = lpsf_kernel_ptr->num_batches();
 
                 std::cout << "n=" << n << ", h=" << h << ", tau=" << tau << ", nb=" << true_nb << std::endl;
-                // Construct hmatrix
+                Construct hmatrix
                 bool display_progress = true;
                 std::shared_ptr<HLIB::TMatrix> K_ptr
                     = HMAT::build_lpsfkernel_hmatrix(lpsf_kernel_ptr, bct_ptr, 
@@ -187,7 +192,7 @@ int main()
         }
     }
 
-    // display results
+    display results
     std::cout << std::endl;
     for ( unsigned int ii=0; ii<errs.size(); ++ii )
     {
@@ -244,4 +249,419 @@ int main()
 // n=64, h=0.015625, tau=3, nb=32
 // ━━ building H-matrix ( tol = 1e-09 )
 // ██████████████████████████████████▎       86% ETA 1 s (136.32 MB)corrupted size vs. prev_size
+// Aborted (core dumped)
+
+
+
+
+// ---------------------------------------------------------------------------------------------
+
+
+
+
+// (fenics4) nick@nick-HP-Laptop-17-ca1xxx:~/repos/localpsfcpp/bin$ ./example2
+// ━━ building H-matrix ( tol = 1e-12 )
+//     done in 0.02s                                              
+//     size of H-matrix = 57.24 kB
+// computing V                                                    
+// computing mu
+// ii = 0
+// ii = 1
+// computing Sigma
+// ii = 0, jj = 0
+// ii = 1, jj = 0
+// ii = 1, jj = 1
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// n=8, h=0.125, tau=4, nb=5
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 0.13s                                               
+//     size of H-matrix = 57.24 kB
+// n=8, h=0.125, tau=4, nb=5, err=0.0359936                        
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// n=8, h=0.125, tau=4, nb=10
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 0.13s                                               
+//     size of H-matrix = 57.24 kB
+// n=8, h=0.125, tau=4, nb=10, err=0.0321111                       
+// n=8, h=0.125, tau=4, nb=10
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 0.14s                                               
+//     size of H-matrix = 57.24 kB
+// n=8, h=0.125, tau=4, nb=10, err=0.0321111                       
+// n=8, h=0.125, tau=4, nb=10
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 0.15s                                               
+//     size of H-matrix = 57.24 kB
+// n=8, h=0.125, tau=4, nb=10, err=0.0321111                       
+// ━━ building H-matrix ( tol = 1e-12 )
+//     done in 0.37s                                               
+//     size of H-matrix = 487.63 kB
+// computing V                                                     
+// computing mu
+// ii = 0
+// ii = 1
+// computing Sigma
+// ii = 0, jj = 0
+// ii = 1, jj = 0
+// ii = 1, jj = 1
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// n=16, h=0.0625, tau=4, nb=5
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 0.43s                                               
+//     size of H-matrix = 310.97 kB
+// n=16, h=0.0625, tau=4, nb=5, err=0.0406423                      
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// n=16, h=0.0625, tau=4, nb=20
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 0.47s                                               
+//     size of H-matrix = 310.97 kB
+// n=16, h=0.0625, tau=4, nb=20, err=0.0265405                     
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// n=16, h=0.0625, tau=4, nb=51
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 1.22s                                               
+//     size of H-matrix = 310.97 kB
+// n=16, h=0.0625, tau=4, nb=51, err=0.000525285                   
+// n=16, h=0.0625, tau=4, nb=51
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 4.87s                                               
+//     size of H-matrix = 310.97 kB
+// n=16, h=0.0625, tau=4, nb=51, err=0.000525285                   
+// ━━ building H-matrix ( tol = 1e-12 )
+//     done in 2.29s                                               
+//     size of H-matrix = 5.82 MB
+// computing V                                                     
+// computing mu
+// ii = 0
+// ii = 1
+// computing Sigma
+// ii = 0, jj = 0
+// ii = 1, jj = 0
+// ii = 1, jj = 1
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// n=32, h=0.03125, tau=4, nb=5
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 1.76s                                               
+//     size of H-matrix = 2.04 MB
+// n=32, h=0.03125, tau=4, nb=5, err=0.0583743                     
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// n=32, h=0.03125, tau=4, nb=20
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 1.93s                                               
+//     size of H-matrix = 2.03 MB
+// n=32, h=0.03125, tau=4, nb=20, err=0.0385927                    
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// n=32, h=0.03125, tau=4, nb=100
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 2.02s                                               
+//     size of H-matrix = 2.01 MB
+// n=32, h=0.03125, tau=4, nb=100, err=0.0170762                   
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// n=32, h=0.03125, tau=4, nb=190
+// ━━ building H-matrix ( tol = 1e-09 )
+//     done in 9.42s                                               
+//     size of H-matrix = 2.00 MB
+// n=32, h=0.03125, tau=4, nb=190, err=0.0015069                   
+
+// h=0.125, tau=4, nb=5, err=0.0359936
+// h=0.125, tau=4, nb=10, err=0.0321111
+// h=0.125, tau=4, nb=10, err=0.0321111
+// h=0.125, tau=4, nb=10, err=0.0321111
+// h=0.0625, tau=4, nb=5, err=0.0406423
+// h=0.0625, tau=4, nb=20, err=0.0265405
+// h=0.0625, tau=4, nb=51, err=0.000525285
+// h=0.0625, tau=4, nb=51, err=0.000525285
+// h=0.03125, tau=4, nb=5, err=0.0583743
+// h=0.03125, tau=4, nb=20, err=0.0385927
+// h=0.03125, tau=4, nb=100, err=0.0170762
+// h=0.03125, tau=4, nb=190, err=0.0015069
+// (fenics4) nick@nick-HP-Laptop-17-ca1xxx:~/repos/localpsfcpp/bin$ ./example2
+// ━━ building H-matrix ( tol = 1e-12 )
+//     done in 1.56s                                                
+//     size of H-matrix = 68.87 MB
+// computing V                                                      
+// computing mu
+// ii = 0
+// ii = 1
+// computing Sigma
+// ii = 0, jj = 0
+// ii = 1, jj = 0
+// ii = 1, jj = 1
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// computing impulse response batch
+// n=64, h=0.015625, tau=3, nb=32
+// ━━ building H-matrix ( tol = 1e-09 )
+// ██████████████████████████████████████▎   96% ETA 0 s (139.73 MB)free(): invalid next size (fast)
 // Aborted (core dumped)

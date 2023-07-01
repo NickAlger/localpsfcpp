@@ -4,6 +4,8 @@
 #include <math.h>
 #include <Eigen/Dense>
 #include <Eigen/LU>
+#include <Eigen/Sparse>
+#include <vector>
 
 #include "lpsf_utils.h"
 #include "kdtree.h"
@@ -229,6 +231,39 @@ struct LPSFKernel
             }
         }
         return block;
+    }
+
+    Eigen::SparseMatrix<double> to_sparse(const INTERP::ShiftMethod         shift_method,
+                                          const INTERP::ScalingMethod       scaling_method,
+                                          const INTERP::InterpolationMethod interpolation_method,
+                                          bool                              use_symmetry) const
+    {
+        std::vector<std::vector<int>> nonzero_rows = ELLIPSOID::points_contained_in_ellipsoids(
+            target_vertices,
+            mu, Sigma, tau,
+            ellipsoid_aabb
+        );
+
+        int nnz = 0;
+        for ( std::vector<int> rows : nonzero_rows )
+        {
+            nnz += rows.size();
+        }
+
+        std::vector<Eigen::Triplet<double>> triplets;
+        triplets.reserve(nnz);
+        for ( int jj=0; jj < nonzero_rows.size(); ++jj )
+        {
+            for ( int ii : nonzero_rows[jj] )
+            {
+                double vv = entry( ii, jj, shift_method, scaling_method, interpolation_method, use_symmetry );
+                triplets.push_back(Eigen::Triplet<double>(ii, jj, vv));
+            }
+        }
+
+        Eigen::SparseMatrix<double> A(NT, NS);
+        A.setFromTriplets(triplets.begin(), triplets.end());
+        return A;
     }
 };
 

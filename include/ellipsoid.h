@@ -142,9 +142,9 @@ std::tuple< Eigen::MatrixXd,  // Sigma
 }
 
 
-AABB::AABBTree make_ellipsoid_aabbtree(const std::vector<Eigen::VectorXd>  & mu, // size=N, elm_size=d
-                                       const std::vector<Eigen::MatrixXd>  & Sigma, // size=N, elm_shape=(d,d)
-                                       double                                tau)
+void check_ellipsoids_mu_sigma_tau(const std::vector<Eigen::VectorXd>  & mu, // size=N, elm_size=d
+                                   const std::vector<Eigen::MatrixXd>  & Sigma, // size=N, elm_shape=(d,d)
+                                   double                                tau)
 {
     if ( tau < 0.0 )
     {
@@ -162,7 +162,24 @@ AABB::AABBTree make_ellipsoid_aabbtree(const std::vector<Eigen::VectorXd>  & mu,
     {
         throw std::invalid_argument( "Sigma.size() != mu.size()" );
     }
-    
+
+    for ( int ii=0; ii<N; ++ii )
+    {
+        if (Sigma[ii].rows() != d || Sigma[ii].cols() != d)
+        {
+            throw std::invalid_argument( "Sigma[ii] shape is not (d,d)" );
+        }
+    }
+}
+
+AABB::AABBTree make_ellipsoid_aabbtree(const std::vector<Eigen::VectorXd>  & mu, // size=N, elm_size=d
+                                       const std::vector<Eigen::MatrixXd>  & Sigma, // size=N, elm_shape=(d,d)
+                                       double                                tau)
+{
+    check_ellipsoids_mu_sigma_tau(mu, Sigma, tau);
+    int N = mu.size();
+    int d = mu[0].size();
+
     Eigen::MatrixXd box_mins (d, N);
     Eigen::MatrixXd box_maxes(d, N);
     for ( int ii=0; ii<N; ++ii )
@@ -259,5 +276,100 @@ std::tuple<std::vector<int>, std::vector<double>> // (new_batch, squared_distanc
     return std::make_tuple(next_batch, squared_distances);
 }
 
+// Find the indices of ellipsoids that contain each point
+std::vector<std::vector<int>>
+    ellipsoids_containing_points(
+        const std::vector<Eigen::VectorXd>  & points, // size=num_points, elm_size=d
+        const std::vector<Eigen::VectorXd>  & ellipsoid_mu, // size=num_ellipsoids, elm_size=d
+        const std::vector<Eigen::MatrixXd>  & ellipsoid_Sigma, // size=num_ellipsoids, elm_shape=(d,d)
+        double                                ellipsoid_tau, // positive
+        const AABB::AABBTree                & ellipsoid_aabb
+    )
+{
+    check_ellipsoids_mu_sigma_tau(ellipsoid_mu, ellipsoid_Sigma, ellipsoid_tau);
+
+    int num_points      = points.size();
+    int num_ellipsoids  = ellipsoid_mu.size();
+    std::vector<std::vector<int>> ellipsoid_inds(num_points);
+
+    if ( num_points > 0 )
+    {
+        int d = points[0].size();
+
+        for ( int ii=0; ii<num_points; ++ii ) // check that all points have the same spatial dimension
+        {
+            if ( points[ii].size() != d )
+            {
+                throw std::invalid_argument( "points have varying spatial dimensions" );
+            }
+        }
+
+        if ( num_ellipsoids > 0 ) // check that ellipsoids and points have the same spatial dimension
+        {
+            if ( ellipsoid_mu[0].size() != d )
+            {
+                throw std::invalid_argument( "ellipsoid spatial dimension != point spatial dimension" );
+            }
+
+            for ( int ii=0; ii < num_points; ++ii )
+            {
+                Eigen::VectorXi candidate_inds = ellipsoid_aabb.point_collisions( points[ii] );
+                for ( int kk=0; kk < candidate_inds.size(); ++kk )
+                {
+                    int ee = candidate_inds(kk);
+                    if ( point_is_in_ellipsoid( ellipsoid_mu[ee],
+                                                ellipsoid_Sigma[ee],
+                                                points[ee],
+                                                ellipsoid_tau ) )
+                    {
+                        ellipsoid_inds[ii].push_back(ee);
+                    }
+                }
+            }
+        }
+    }
+    return ellipsoid_inds;
+}
+
+std::vector<std::vector<int>> invert_index_correspondence( std::vector<std::vector<int>> X_to_Y, int Y_size )
+{
+    std::vector<std::vector<int>> Y_to_X(Y_size);
+    for ( int ii=0; ii < X_to_Y.size(); ++ii )
+    {
+        for ( int jj=0; jj < X_to_Y[ii].size(); ++jj )
+        {
+            int ind = X_to_Y[ii][jj];
+            if ( ind < 0 )
+            {
+                throw std::invalid_argument( "negative index" );
+            }
+            if ( ind >= Y_size )
+            {
+                throw std::invalid_argument( "index too large" );
+            }
+            Y_to_X[ ind ].push_back(ii);
+        }
+    }
+    return Y_to_X;
+}
+
+// Find the indices of points that are in each ellipsoid
+std::vector<std::vector<int>>
+    points_contained_in_ellipsoids(
+        const std::vector<Eigen::VectorXd>  & points, // size=num_points, elm_size=d
+        const std::vector<Eigen::VectorXd>  & ellipsoid_mu, // size=num_ellipsoids, elm_size=d
+        const std::vector<Eigen::MatrixXd>  & ellipsoid_Sigma, // size=num_ellipsoids, elm_shape=(d,d)
+        double                                ellipsoid_tau, // positive
+        const AABB::AABBTree                & ellipsoid_aabb
+    )
+{
+    return invert_index_correspondence(
+        ellipsoids_containing_points( points,
+                                      ellipsoid_mu,
+                                      ellipsoid_Sigma,
+                                      ellipsoid_tau,
+                                      ellipsoid_aabb ),
+        ellipsoid_mu.size() );
+}
 
 } // end namespace ELLIPSOID

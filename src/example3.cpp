@@ -41,7 +41,7 @@ struct GaussKernel : public HLIB::TCoeffFn< real_t >
     Eigen::MatrixXd vertices;
     double sigma_squared;
 
-    GaussKernel( Eigen::MatrixXd vertices_input, double sigma ) 
+    GaussKernel( Eigen::MatrixXd vertices_input, double sigma )
         : vertices(vertices_input), sigma_squared(sigma*sigma) {}
 
     void eval( const std::vector< HLIB::idx_t > &  rowidxs,
@@ -72,9 +72,6 @@ int main()
 {
     // Options
     int    num_neighbors          = 10;     // number of impulses used for interpolation
-    double hmatrix_tol            = 1.0e-9; // relative tolerance for low rank approximation of matrix blocks
-    double bct_admissibility_eta  = 2.0;    // block (A,B) is admissible if min(diam(A), diam(B)) < eta*dist(A, B)
-    int    cluster_size_cutoff    = 32;
     double    min_vol_rtol        = 1e-5;   // parameter for throwing away impulses with small volumes
     int    num_initial_batches    = 0;
 
@@ -88,8 +85,13 @@ int main()
     // INTERP::InterpolationMethod interpolation_method = INTERP::InterpolationMethod::RBF_THIN_PLATE_SPLINES;
     bool                        use_symmetry         = false; // use_symmetry=true is not implemented yet
 
-    double sigma = 0.05;
+    double sigma = 0.025;
+    int num_test_vectors = 50;
+
+//    double hmatrix_tol            = 1.0e-9; // relative tolerance for low rank approximation of matrix blocks
     double tight_hmatrix_tol = 1e-12;
+    double bct_admissibility_eta  = 2.0;    // block (A,B) is admissible if min(diam(A), diam(B)) < eta*dist(A, B)
+    int    cluster_size_cutoff    = 32;
 
     // Test ideas from meeting:
     // Vary sigma and check rank: rank \propto (sigma/L)^d
@@ -99,10 +101,10 @@ int main()
     // BIG GOAL: have automated tests that make sure the code is doing what we think
     //           like: finite element convergence, or finite difference check of gradient
 
-    // std::vector<double> all_sigma       = {0.05, 0.025, 0.0125}; 
+    // std::vector<double> all_sigma       = {0.05, 0.025, 0.0125};
     std::vector<int>    all_nn          = {64}; //{32}; //{8, 16, 32}; //, 128}; // mesh is n x n
-    std::vector<double> all_tau         = {3.0}; //{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0}; // Ellipsoid size in standard deviations
-    std::vector<int>    all_num_batches = {32}; //{5, 20, 100, 200}; //{1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
+    std::vector<double> all_tau         = {1.0, 2.0, 3.0, 4.0, 5.0}; //{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0}; // Ellipsoid size in standard deviations
+    std::vector<int>    all_num_batches = {128}; //{5, 20, 100, 200}; //{1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
 
     std::vector<int>    nns;
     std::vector<double> hs;
@@ -118,7 +120,7 @@ int main()
         std::vector<Eigen::VectorXd> vertices_list = LPSFUTIL::unpack_MatrixXd_columns(vertices);
 
         // Build cluster tree
-        std::shared_ptr<HLIB::TClusterTree> ct_ptr 
+        std::shared_ptr<HLIB::TClusterTree> ct_ptr
             = HMAT::build_cluster_tree_from_dof_coords(vertices_list, cluster_size_cutoff);
 
         // Build block cluster tree
@@ -127,39 +129,45 @@ int main()
 
         // Create Gaussian kernel hmatrix, accurate to tight tolerance
         GaussKernel GK(vertices, sigma);
-        std::shared_ptr<HLIB::TMatrix> Ktrue_ptr = HMAT::build_hmatrix_from_coefffn( GK, 
-                                                                                     bct_ptr, 
-                                                                                     tight_hmatrix_tol, 
+        std::shared_ptr<HLIB::TMatrix> Ktrue_ptr = HMAT::build_hmatrix_from_coefffn( GK,
+                                                                                     bct_ptr,
+                                                                                     tight_hmatrix_tol,
                                                                                      true );
 
         int N = (n+1)*(n+1);
         double h = 1.0 / ((double)n);
         Eigen::VectorXd mass_lumps = Eigen::VectorXd::Ones(N) / (h*h);
 
-        std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_ML 
+        std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_ML
             = [&mass_lumps](Eigen::VectorXd x) { return (x.array() * mass_lumps.array()).matrix(); };
 
-        std::function<Eigen::VectorXd(Eigen::VectorXd)> solve_ML 
+        std::function<Eigen::VectorXd(Eigen::VectorXd)> solve_ML
             = [&mass_lumps](Eigen::VectorXd x) { return (x.array() / mass_lumps.array()).matrix(); };
 
-        std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_A  
-            = [&](Eigen::VectorXd x) 
+        std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_A
+            = [&](Eigen::VectorXd x)
                 { return apply_ML(HMAT::TMatrix_matvec(Ktrue_ptr, bct_ptr, apply_ML(x), HLIB::apply_normal)); };
 
         std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_AT
-            = [&](Eigen::VectorXd x) 
+            = [&](Eigen::VectorXd x)
                 { return apply_ML(HMAT::TMatrix_matvec(Ktrue_ptr, bct_ptr, apply_ML(x), HLIB::apply_transposed)); };
 
+        Eigen::MatrixXd Omega = Eigen::MatrixXd::Random(N, num_test_vectors);
+        Eigen::MatrixXd AOmega_true(N, num_test_vectors);
+        for ( int jj=0; jj < num_test_vectors; ++jj )
+        {
+            AOmega_true.col(jj) = apply_A(Omega.col(jj));
+        }
 
         for ( double tau : all_tau )
         {
             // Create Local PSF Kernel object
-            std::shared_ptr<PCK::LPSFKernel> lpsf_kernel_ptr 
-                = PCK::create_LPSFKernel(apply_A, apply_AT, 
-                                         apply_ML, apply_ML, 
-                                         solve_ML, solve_ML, 
-                                         vertices, vertices, 
-                                         cells, tau, num_neighbors, 
+            std::shared_ptr<PCK::LPSFKernel> lpsf_kernel_ptr
+                = PCK::create_LPSFKernel(apply_A, apply_AT,
+                                         apply_ML, apply_ML,
+                                         solve_ML, solve_ML,
+                                         vertices, vertices,
+                                         cells, tau, num_neighbors,
                                          min_vol_rtol, num_initial_batches);
 
             //Add batches to kernel, compute hmatrix, convert hmatrix to dense, check error
@@ -178,16 +186,23 @@ int main()
 
                 std::cout << "n=" << n << ", h=" << h << ", tau=" << tau << ", nb=" << true_nb << std::endl;
                 // Construct hmatrix
-                bool display_progress = true;
-                std::shared_ptr<HLIB::TMatrix> K_ptr
-                    = HMAT::build_lpsfkernel_hmatrix(lpsf_kernel_ptr, bct_ptr, 
-                                                     shift_method, scaling_method, interpolation_method, use_symmetry,
-                                                     hmatrix_tol, display_progress);
+                Eigen::SparseMatrix<double> K = lpsf_kernel_ptr->to_sparse(
+                    shift_method, scaling_method, interpolation_method, use_symmetry);
 
-                double err = HLIB::diff_norm_F(Ktrue_ptr.get(), K_ptr.get(), true);
+                std::cout << "nnz/N=" << (double)K.nonZeros() / (double)N << std::endl;
+
+                std::function<Eigen::VectorXd(Eigen::VectorXd)> apply_A_tilde
+                    = [&](Eigen::VectorXd x){ return apply_ML(K * apply_ML(x)); };
+
+                Eigen::MatrixXd AOmega_tilde(N, num_test_vectors);
+                for ( int jj=0; jj < num_test_vectors; ++jj )
+                {
+                    AOmega_tilde.col(jj) = apply_A_tilde(Omega.col(jj));
+                }
+                double err = (AOmega_true - AOmega_tilde).norm() / AOmega_true.norm();
 
                 std::cout << "n=" << n << ", h=" << h << ", tau=" << tau << ", nb=" << true_nb << ", err=" << err << std::endl;
-                
+
                 nns.push_back(n);
                 hs.push_back(h);
                 taus.push_back(tau);
